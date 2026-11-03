@@ -16,6 +16,7 @@ nomad-node/
     ├── docker-compose.yml     # service stack (starting point; not every service is wired yet)
     ├── nomad-mcp/server.py    # MCP server exposing radio/mesh/sdr/power/net tools to Hermes
     ├── bridges/meshtastic_bridge.py
+    ├── firstboot/index.html   # offline first-boot operator's guide for the lid touchscreen (kiosk)
     └── homeassistant/automations.example.yaml
 ```
 

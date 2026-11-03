@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NOMAD-X First Boot</title>
+<meta name="description" content="First-boot operator's guide for the NOMAD-X off-grid comms and compute node. Works fully offline.">
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#121820; --panel-2:#182029; --line:#243041;
+    --text:#e6edf3; --muted:#8b98a5; --dim:#5c6977;
+    --amber:#f5a524; --amber-2:#ffc24d; --green:#3ddc84; --red:#ff4d4f; --blue:#5aa9ff;
+    --radius:14px; --shadow:0 10px 30px rgba(0,0,0,.35);
+    --font:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    --touch:52px;
+  }
+  :root[data-theme="sun"]{
+    --bg:#f6f3ea; --panel:#ffffff; --panel-2:#f0ece0; --line:#d9d2bf;
+    --text:#14181d; --muted:#4e5864; --dim:#7b8590;
+    --amber:#b8710a; --amber-2:#a05f00; --green:#157a43; --red:#c81e1e; --blue:#1759b8;
+    --shadow:0 6px 20px rgba(40,30,0,.12);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);font:18px/1.5 var(--font);-webkit-font-smoothing:antialiased;overflow:hidden}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(245,165,36,.10), transparent 60%),
+    radial-gradient(800px 500px at -10% 110%, rgba(90,169,255,.08), transparent 60%)}
+  button{font:inherit;color:inherit}
+  a{color:var(--amber-2)}
+  .app{display:grid;grid-template-columns:300px 1fr;grid-template-rows:72px 1fr;height:100vh;position:relative;z-index:1}
+  /* top bar */
+  .top{grid-column:1/-1;display:flex;align-items:center;gap:18px;padding:0 24px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--panel) 85%,transparent);backdrop-filter:blur(8px)}
+  .brand{display:flex;align-items:center;gap:12px;font-family:var(--mono);font-weight:700;letter-spacing:.12em;font-size:20px}
+  .brand .mark{width:34px;height:34px;display:grid;place-items:center}
+  .brand .x{color:var(--amber)}
+  .top .spacer{flex:1}
+  .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border:1px solid var(--line);border-radius:999px;font-family:var(--mono);font-size:14px;color:var(--muted);background:var(--panel)}
+  .pill .dot{width:10px;height:10px;border-radius:50%;background:var(--dim)}
+  .pill.ok .dot{background:var(--green);box-shadow:0 0 10px var(--green)}
+  .pill.bad .dot{background:var(--red)}
+  .btn{min-height:var(--touch);padding:0 20px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2);cursor:pointer;display:inline-flex;align-items:center;gap:10px;font-weight:600;transition:transform .08s,background .15s}
+  .btn:active{transform:scale(.98)}
+  .btn.primary{background:var(--amber);border-color:var(--amber);color:#1a1200}
+  .btn.danger{background:var(--red);border-color:var(--red);color:#fff}
+  .btn.ghost{background:transparent}
+  .btn.sm{min-height:42px;padding:0 14px;font-size:15px}
+  /* side nav */
+  .nav{border-right:1px solid var(--line);padding:18px 14px;display:flex;flex-direction:column;gap:6px;overflow:auto;background:color-mix(in srgb,var(--panel) 60%,transparent)}
+  .nav button{display:flex;align-items:center;gap:12px;min-height:var(--touch);padding:0 14px;border:0;border-radius:12px;background:transparent;text-align:left;cursor:pointer;color:var(--muted)}
+  .nav button .n{font-family:var(--mono);font-size:13px;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;border:1px solid var(--line);color:var(--dim)}
+  .nav button.active{background:var(--panel-2);color:var(--text)}
+  .nav button.active .n{border-color:var(--amber);color:var(--amber)}
+  .nav button.done .n{border-color:var(--green);color:var(--green)}
+  .nav .grow{flex:1}
+  .nav .foot{font-size:13px;color:var(--dim);padding:10px 14px;font-family:var(--mono)}
+  /* main */
+  .main{overflow:auto;padding:36px 48px 120px;scroll-behavior:smooth}
+  .page{display:none;max-width:1240px;margin:0 auto;animation:fade .25s ease}
+  .page.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  h1{font-size:44px;line-height:1.1;margin:0 0 12px;letter-spacing:-.01em}
+  h2{font-size:30px;margin:0 0 10px;letter-spacing:-.01em}
+  h3{font-size:20px;margin:0 0 6px}
+  .kicker{font-family:var(--mono);color:var(--amber);letter-spacing:.14em;font-size:13px;text-transform:uppercase;margin-bottom:10px}
+  .lead{font-size:21px;color:var(--muted);max-width:60ch;margin:0 0 28px}
+  .grid{display:grid;gap:18px}
+  .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow)}
+  .card.accent{border-color:color-mix(in srgb,var(--amber) 50%,var(--line))}
+  .card h3 .ico{margin-right:8px}
+  .muted{color:var(--muted)}
+  .mono{font-family:var(--mono)}
+  .steps{counter-reset:s;display:grid;gap:12px}
+  .steps li{list-style:none;display:flex;gap:16px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .steps li::before{counter-increment:s;content:counter(s);font-family:var(--mono);font-weight:700;color:var(--amber);border:1px solid var(--amber);border-radius:10px;width:34px;height:34px;display:grid;place-items:center;flex:none}
+  kbd{font-family:var(--mono);background:var(--panel-2);border:1px solid var(--line);border-bottom-width:3px;border-radius:8px;padding:2px 10px;font-size:16px}
+  .cmd{font-family:var(--mono);background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:2px 8px;color:var(--amber-2);white-space:nowrap}
+  .pager{position:fixed;left:300px;right:0;bottom:0;display:flex;gap:12px;align-items:center;padding:16px 48px;border-top:1px solid var(--line);background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);z-index:2}
+  .pager .spacer{flex:1}
+  .progress{height:6px;background:var(--line);border-radius:3px;width:260px;overflow:hidden}
+  .progress i{display:block;height:100%;background:var(--amber);width:0;transition:width .3s}
+  /* hero */
+  .hero{display:grid;grid-template-columns:1.2fr 1fr;gap:28px;align-items:start}
+  .hero .big{display:grid;gap:12px}
+  .hero .big .btn{min-height:68px;font-size:20px;justify-content:flex-start;padding:0 24px}
+  .hero .big .btn .sub{font-weight:400;color:inherit;opacity:.75;font-size:15px;margin-left:auto}
+  /* table-ish */
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  th,td{padding:14px 16px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{font-family:var(--mono);font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:var(--panel-2)}
+  tr:last-child td{border-bottom:0}
+  /* rack */
+  .rackwrap{display:grid;grid-template-columns:420px 1fr;gap:28px;align-items:start}
+  .rack{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+  .lid{border:2px dashed var(--line);border-radius:12px;padding:10px;text-align:center;font-family:var(--mono);font-size:13px;color:var(--muted);margin-bottom:14px;cursor:pointer}
+  .lid.active,.unit.active{outline:2px solid var(--amber);outline-offset:2px}
+  .units{display:grid;gap:8px}
+  .unit{display:flex;align-items:center;gap:12px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:0 14px;cursor:pointer;min-height:var(--touch)}
+  .unit .u{font-family:var(--mono);font-size:12px;color:var(--dim);width:28px}
+  .unit .nm{font-weight:600}
+  .unit .tag{margin-left:auto;flex:none;white-space:nowrap;font-family:var(--mono);font-size:11px;letter-spacing:.1em;padding:3px 8px;border-radius:6px;border:1px solid var(--line);color:var(--muted)}
+  .unit .nm{flex:1;min-width:0}
+  .unit .tag.touch{color:var(--green);border-color:var(--green)}
+  .unit .tag.leave{color:var(--dim)}
+  .unit .tag.ops{color:var(--amber);border-color:var(--amber)}
+  .beside{margin-top:14px;display:grid;gap:8px}
+  .detail{position:sticky;top:0}
+  .detail .card{min-height:320px}
+  /* chips & accordion */
+  .chips{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px}
+  .chip{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:var(--panel);cursor:pointer;color:var(--muted)}
+  .chip.active{border-color:var(--amber);color:var(--amber);background:color-mix(in srgb,var(--amber) 10%,var(--panel))}
+  .acc{display:grid;gap:12px}
+  .acc details{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .acc summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:14px;padding:18px 22px;min-height:64px;font-weight:600;font-size:19px}
+  .acc summary::-webkit-details-marker{display:none}
+  .acc summary .cat{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;padding:4px 9px;border-radius:6px;border:1px solid var(--line);color:var(--muted);flex:none}
+  .acc summary .chev{margin-left:auto;color:var(--dim);transition:transform .2s}
+  .acc details[open] summary .chev{transform:rotate(180deg)}
+  .acc .body{padding:0 22px 22px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .acc .body > div{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .acc .body .lbl{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);margin-bottom:6px}
+  /* tabs */
+  .tabs{display:flex;gap:8px;border-bottom:1px solid var(--line);margin-bottom:18px;flex-wrap:wrap}
+  .tab{min-height:48px;padding:0 16px;border:0;border-bottom:3px solid transparent;background:transparent;cursor:pointer;color:var(--muted);font-weight:600}
+  .tab.active{color:var(--text);border-bottom-color:var(--amber)}
+  .tabpane{display:none}.tabpane.active{display:block}
+  /* checklist */
+  .check{display:grid;gap:10px}
+  .check label{display:flex;gap:14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-height:var(--touch);cursor:pointer}
+  .check input{width:26px;height:26px;accent-color:var(--amber)}
+  .check label.done{color:var(--muted);text-decoration:line-through}
+  /* emergency */
+  .overlay{position:fixed;inset:0;background:rgba(10,0,0,.92);display:none;z-index:50;padding:40px;overflow:auto}
+  .overlay.open{display:block}
+  .overlay .box{max-width:980px;margin:0 auto;background:#1a0b0b;border:2px solid var(--red);border-radius:20px;padding:36px;color:#fff}
+  .overlay h2{color:#fff;font-size:40px}
+  .overlay textarea{width:100%;min-height:140px;font:20px/1.4 var(--font);padding:16px;border-radius:12px;border:1px solid #6b2a2a;background:#120606;color:#fff;resize:vertical}
+  .overlay .links{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:18px 0}
+  .overlay .lk{background:#2a1010;border:1px solid #6b2a2a;border-radius:10px;padding:12px;font-family:var(--mono);font-size:14px}
+  .overlay .lk b{display:block;font-size:12px;letter-spacing:.1em;color:#ffb3b3;margin-bottom:4px}
+  .status{font-family:var(--mono);font-size:15px;margin-top:12px;color:#ffd6d6;min-height:24px}
+  .toggle{display:flex;align-items:center;gap:12px;cursor:pointer}
+  .toggle input{width:48px;height:28px;accent-color:var(--amber)}
+  .sr{position:absolute;left:-9999px}
+  @media (max-width:1100px){
+    .app{grid-template-columns:1fr}
+    .nav{display:none}
+    .pager{left:0;padding:12px 16px}
+    .main{padding:20px 16px 110px}
+    h1{font-size:32px}
+    .g2,.g3,.g4,.hero,.rackwrap,.acc .body{grid-template-columns:1fr}
+    .overlay .links{grid-template-columns:repeat(2,1fr)}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">
+        <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="17" cy="17" r="3" fill="var(--amber)" stroke="none"/>
+          <path d="M9 25a11 11 0 0 1 0-16M25 9a11 11 0 0 1 0 16" stroke="var(--amber)"/>
+          <path d="M4 30a18 18 0 0 1 0-26M30 4a18 18 0 0 1 0 26" opacity=".45"/>
+        </svg>
+      </span>
+      <span>NOMAD<span class="x">-X</span></span>
+      <span class="muted" style="font-weight:400;letter-spacing:0;font-family:var(--font);font-size:15px">First boot · Operator's guide</span>
+    </div>
+    <div class="spacer"></div>
+    <div class="pill" id="hermesPill" title="Connection from this screen to the NOMAD assistant"><span class="dot"></span><span id="hermesText">checking NOMAD…</span></div>
+    <div class="pill mono" id="clock">--:--</div>
+    <button class="btn sm ghost" id="themeBtn" aria-label="Toggle sunlight mode">☀ Sunlight</button>
+    <button class="btn sm danger" id="emgBtn">EMERGENCY</button>
+  </header>
+
+  <nav class="nav" id="nav" aria-label="Guide sections"></nav>
+
+  <main class="main" id="main">
+
+    <!-- 0 WELCOME -->
+    <section class="page" data-page="welcome">
+      <div class="kicker">You found NOMAD-X</div>
+      <h1>A computer, a library, a radio room, and a power plant — in one case.</h1>
+      <p class="lead">It works with no internet, no cell service, and no wall power. It makes its own Wi-Fi, has an AI assistant named <b>NOMAD</b> that lives inside, and has several ways to reach the outside world when nothing else does.</p>
+      <div class="hero">
+        <div class="big">
+          <button class="btn primary" data-go="whatis">I'm new — show me around <span class="sub">about 5 minutes</span></button>
+          <button class="btn" data-go="talk">Just let me talk to NOMAD <span class="sub">skip the tour</span></button>
+          <button class="btn" data-go="scenarios">What can it do? Show me scenarios <span class="sub">15 situations</span></button>
+          <button class="btn danger" id="emgBtn2">Someone needs help now <span class="sub">emergency mode</span></button>
+        </div>
+        <div class="card accent">
+          <h3><span class="ico">⏱</span>If you have 60 seconds</h3>
+          <ol class="steps" style="margin:12px 0 0;padding:0">
+            <li><span>Keep the lid <b>open</b> while it runs. Keep it in shade.</span></li>
+            <li><span>Wait for the dashboard (about 2 minutes after the <b>MAIN</b> switch). You're looking at it.</span></li>
+            <li><span>Tap the chat box and type <kbd>Hello, what can you do?</kbd></span></li>
+            <li><span>To get help: type <kbd>emergency</kbd> and what's wrong. NOMAD sends it on every link.</span></li>
+            <li><span>To turn off: type <kbd>shut down</kbd>, wait for black screen, flip <b>MAIN</b> off.</span></li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- 1 WHAT IS -->
+    <section class="page" data-page="whatis">
+      <div class="kicker">What is this thing?</div>
+      <h2>Four things fused together</h2>
+      <p class="lead">Tying them together is NOMAD, an assistant that runs on the computer in this case — not in the cloud. It can see the battery, hear the radios, send messages, look things up, and manage power.</p>
+      <div class="grid g4">
+        <div class="card"><h3><span class="ico">🧠</span>A good laptop + a small server</h3><p class="muted">A compact AI computer ("the brain"). Runs the assistant, stores everything, serves the Wi-Fi apps.</p></div>
+        <div class="card"><h3><span class="ico">📚</span>A library</h3><p class="muted">Offline Wikipedia with pictures, medical references, repair guides, maps, and field manuals — about 300 GB. Answers when there's no Google.</p></div>
+        <div class="card"><h3><span class="ico">📡</span>A radio shack + phone + satellite messenger</h3><p class="muted">Ham radio, family radios, long-range mesh text radios, a cell modem, and a satellite text modem. Many ways out, so one always works.</p></div>
+        <div class="card"><h3><span class="ico">🔋</span>A solar generator</h3><p class="muted">A big lithium battery, solar input, and software that stretches it. Days of use with no wall power.</p></div>
+      </div>
+      <div class="grid g2" style="margin-top:18px">
+        <div class="card"><h3>What it's for</h3><ul class="muted"><li>Off-grid camps and expeditions</li><li>Disasters and outages — relaying messages for a group</li><li>Remote work sites — network, files, docs, comms</li><li>A mobile radio and communications post</li><li>Tinkering: software radios, Wi-Fi survey, a shared GPU</li></ul></div>
+        <div class="card"><h3>What it is not</h3><ul class="muted"><li>Not a phone, and not internet unless a Starlink dish or a cell tower is around</li><li>Not waterproof while running — it's a base station: open to run, closed to move</li><li>Not a cloud service: nothing you say leaves the case unless you ask it to send a message</li></ul></div>
+      </div>
+    </section>
+
+    <!-- 2 TOUR -->
+    <section class="page" data-page="tour">
+      <div class="kicker">A tour of the box</div>
+      <h2>Tap any part to learn what it is</h2>
+      <p class="lead">Green tags are things you'll touch. Grey tags are best left alone. Amber tags are for a licensed radio operator.</p>
+      <div class="rackwrap">
+        <div class="rack" aria-label="Rack diagram">
+          <div class="lid" data-unit="lid">LID — touch screen (you're looking at it)</div>
+          <div class="units" id="units"></div>
+          <div class="beside" id="beside"></div>
+        </div>
+        <div class="detail"><div class="card" id="unitDetail"><h3>Tap a part</h3><p class="muted">The rack is a stack of slim boxes. From top to bottom: antenna jacks, router, switch, the brain, the ham radio, the small-radio bay, and the power panel. The battery lives beside the rack; the keyboard slides out from the bottom; the Wi-Fi puck clips to the lid outside.</p></div></div>
+      </div>
+    </section>
+
+    <!-- 3 TALK -->
+    <section class="page" data-page="talk">
+      <div class="kicker">How you talk to it</div>
+      <h2>Plain English, from wherever you are</h2>
+      <p class="lead">"How much battery is left?" · "Send Sam a message that we're moving camp" · "What's the weather on the radio?" · "How do I treat a burn?" — all work.</p>
+      <div class="tabs" role="tablist" id="talkTabs"></div>
+      <div id="talkPanes"></div>
+      <div class="grid g2" style="margin-top:22px">
+        <div class="card"><h3>What NOMAD can do</h3><ul class="muted"><li>Report the state of everything: battery, solar, links, temperature, location</li><li>Send messages on any link: mesh, text, satellite, radio, email-over-radio</li><li>Listen to radio channels and tell you what it heard</li><li>Scan the airwaves: weather radio, repeaters, aircraft nearby</li><li>Answer from the offline library and say where the answer came from</li><li>Manage power and warn you before it runs out</li><li>Run a self-test of every link: <span class="cmd">/comms-check</span></li><li>Keep a log of everything it did</li></ul></div>
+        <div class="card"><h3>What it won't do</h3><ul class="muted"><li>Transmit on the ham radio unless a licensed operator asks — and only on allowed frequencies</li><li>Pretend. If a link is down or it doesn't know, it says so</li><li>Let the battery die: below 30% it saves power and tells you; below 15% it switches off non-essentials itself</li><li>Use the security tools on its own</li></ul>
+          <h3 style="margin-top:14px">Shortcuts</h3><p class="muted"><span class="cmd">/comms-check</span> <span class="cmd">/power eco</span> <span class="cmd">/power normal</span> <span class="cmd">/sdr-monitor</span> <span class="cmd">/knowledge-lookup</span> <span class="cmd">/incident-log last 10</span></p></div>
+      </div>
+    </section>
+
+    <!-- 4 SCENARIOS -->
+    <section class="page" data-page="scenarios">
+      <div class="kicker">Scenarios</div>
+      <h2>What's happening → what you do → what happens → how it works</h2>
+      <div class="chips" id="chips"></div>
+      <div class="acc" id="acc"></div>
+    </section>
+
+    <!-- 5 ROUTINES -->
+    <section class="page" data-page="routines">
+      <div class="kicker">Routines &amp; safety</div>
+      <h2>Setting up, daily, moving</h2>
+      <div class="grid g2">
+        <div>
+          <div class="card"><h3>Set up at a new site <span class="muted" style="font-weight:400">· 10 minutes</span></h3>
+            <p class="muted" style="margin-top:0">Tick as you go. This list is saved on this screen.</p>
+            <div class="check" id="setupCheck"></div>
+          </div>
+        </div>
+        <div class="grid" style="gap:18px">
+          <div class="card"><h3>Daily</h3><ul class="muted"><li>Morning: read NOMAD's 7 am brief</li><li>Keep the panel pointed at the sun; glance at the battery number</li><li>Night: ask <i>"Will we make it to sunrise on battery?"</i> and follow its advice</li></ul></div>
+          <div class="card"><h3>Moving</h3><ul class="muted"><li>Type <span class="cmd">shut down</span>, wait for black screen and silent fans, MAIN off</li><li>Unplug antennas and solar, cap the jacks, stow the Wi-Fi puck and keyboard, latch</li><li>Never travel with it running. Roll it on its wheels; stand it on edge only to operate</li></ul></div>
+          <div class="card accent"><h3>Safety &amp; legal</h3><ul class="muted">
+            <li><b>Heat:</b> lid open, in shade. The brain likes 5–30 °C (41–86 °F).</li>
+            <li><b>Water:</b> closed and off it's weatherproof; open and running it isn't. Rain → shut down and close.</li>
+            <li><b>Electricity:</b> don't open the power panel or bypass fuses.</li>
+            <li><b>Licenses (US):</b> ham radio TX needs an FCC amateur license; GMRS handhelds need a GMRS license (no test). Mesh, satellite, cell, Wi-Fi: none. Listening is always legal. In a real emergency, rules allow any means to get help — use <span class="cmd">emergency</span>.</li>
+            <li><b>Security tools:</b> only on networks you own or have written permission to test.</li>
+          </ul></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6 HARDWARE -->
+    <section class="page" data-page="hardware">
+      <div class="kicker">Hardware list</div>
+      <h2>What's actually in here</h2>
+      <div class="grid g2" id="hwGrid"></div>
+    </section>
+
+    <!-- 7 FINISH -->
+    <section class="page" data-page="finish">
+      <div class="kicker">You're ready</div>
+      <h1>Go talk to NOMAD.</h1>
+      <p class="lead">The dashboard has the chat box, battery and link status, the radio waterfall, and the map. Start with a comms check so you know what's working.</p>
+      <div class="grid g3">
+        <a class="btn primary" style="min-height:70px;font-size:20px;text-decoration:none;justify-content:center" id="openDash" href="https://hermes.nomad.lan">Open the dashboard →</a>
+        <a class="btn" style="min-height:70px;font-size:20px;text-decoration:none;justify-content:center" href="http://library.nomad.lan">Open the library</a>
+        <a class="btn" style="min-height:70px;font-size:20px;text-decoration:none;justify-content:center" href="http://maps.nomad.lan">Open the maps</a>
+      </div>
+      <div class="card" style="margin-top:22px;display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+        <label class="toggle"><input type="checkbox" id="dontShow"> <span>Don't show this guide on the next boot <span class="muted">(you can reopen it from the dashboard: Help → First-boot guide)</span></span></label>
+        <div class="spacer" style="flex:1"></div>
+        <button class="btn sm ghost" id="resetBtn">Reset checklists</button>
+      </div>
+      <p class="muted mono" style="margin-top:18px;font-size:13px">Guide v0.2 · lives at /opt/nomad/stack/firstboot/index.html · fully offline · theme and checklists are stored only on this screen</p>
+    </section>
+  </main>
+
+  <div class="pager">
+    <button class="btn" id="prevBtn">← Back</button>
+    <div class="progress" aria-hidden="true"><i id="prog"></i></div>
+    <span class="mono muted" id="stepLabel" style="font-size:13px"></span>
+    <div class="spacer"></div>
+    <button class="btn primary" id="nextBtn">Next →</button>
+  </div>
+</div>
+
+<!-- EMERGENCY OVERLAY -->
+<div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="emgTitle">
+  <div class="box">
+    <div class="kicker" style="color:#ffb3b3">Emergency mode</div>
+    <h2 id="emgTitle">Say what's wrong. NOMAD sends it on every link at once.</h2>
+    <p style="color:#ffd6d6;font-size:18px">Your GPS position is attached automatically. Keep it short: who, what, how many, what you need.</p>
+    <textarea id="emgText" placeholder="e.g. broken leg, two people, need evacuation. Camp at the north ridge trailhead."></textarea>
+    <div class="links">
+      <div class="lk"><b>SATELLITE</b>Iridium text · needs open sky · almost always works</div>
+      <div class="lk"><b>CELL TEXT</b>if a tower is barely reachable</div>
+      <div class="lk"><b>MESH</b>anyone nearby with a mesh radio</div>
+      <div class="lk"><b>RADIO (APRS)</b>ham operators + internet gateways</div>
+      <div class="lk"><b>EMAIL / HF</b>shortwave, slow but global</div>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <button class="btn danger" style="min-height:64px;font-size:20px" id="emgSend">SEND ON ALL LINKS</button>
+      <button class="btn ghost" id="emgClose" style="color:#fff;border-color:#6b2a2a">Close</button>
+      <span class="status" id="emgStatus"></span>
+    </div>
+    <p style="color:#ffb3b3;margin-top:18px;font-size:15px">If this screen can't reach NOMAD, open the chat on the dashboard and type <kbd style="color:#fff">emergency</kbd> followed by your message — same result. First aid: ask <i>"How do I treat …"</i> and NOMAD answers from the offline medical library.</p>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---- config (edit on the device) ------------------------------------------
+  const CFG = {
+    hermesHealth: 'http://127.0.0.1:8642/health',          // Hermes API server
+    emergencyWebhook: 'http://127.0.0.1:8644/webhooks/emergency', // Hermes webhook route (HMAC handled by a local proxy or INSECURE_NO_AUTH on loopback)
+    dashboard: 'https://hermes.nomad.lan',
+  };
+  const LS = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } };
+
+  // ---- data -----------------------------------------------------------------
+  const PAGES = [
+    ['welcome','Welcome'],['whatis','What is this?'],['tour','Tour of the box'],['talk','Talk to NOMAD'],
+    ['scenarios','Scenarios'],['routines','Routines & safety'],['hardware','Hardware'],['finish','Finish'],
+  ];
+
+  const UNITS = [
+    {id:'rf', u:'1U', name:'RF PANEL', tag:'touch', t:'Antenna jacks', d:'A row of labeled jacks: HF, VHF/UHF, LORA, GPS, CELL, SAT, WIFI. Antennas screw on here. Cap any jack you are not using. This is where the radios reach the outside world.'},
+    {id:'router', u:'1U', name:'ROUTER', tag:'leave', t:'The traffic cop', d:'Makes the case\'s network, holds the cell modem and SIM cards, and decides whether internet goes out over Starlink or cell. The Wi-Fi itself comes from the puck mounted outside on the lid. Leave it alone — NOMAD drives it.'},
+    {id:'switch', u:'1U', name:'SWITCH', tag:'touch', t:'Wired network ports', d:'Plug laptops or a Starlink dish in here by cable. The port marked WAN is for internet sources; the rest are for your devices. Lights blink when traffic flows.'},
+    {id:'brain', u:'2U', name:'BRAIN', tag:'leave', t:'The AI computer', d:'A palm-sized computer with 128 GB of memory and a 4 TB drive. Runs NOMAD, the library, the maps, and all the radio software. It is the one part that minds heat: keep the case open and shaded. Do not unplug it while running.'},
+    {id:'radio', u:'2U', name:'RADIO · Icom IC-705', tag:'ops', t:'Ham radio, shortwave to UHF', d:'A 10-watt amateur radio with its own screen. NOMAD controls it over USB: tuning, listening, and (only when a licensed operator asks) transmitting — radio beacons, email over shortwave, digital modes. If you are not licensed, listen only. Never press the PTT (transmit) button on the microphone casually.'},
+    {id:'rfbay', u:'1U', name:'RF BAY', tag:'leave', t:'The small radios', d:'Mesh radio (long-range text), Reticulum radio (encrypted mesh), two or three software-defined receivers (listen to anything), GPS, the satellite text modem, and a Flipper Zero. All automatic; all plugged into one powered USB hub.'},
+    {id:'power', u:'1U', name:'POWER PANEL', tag:'touch', t:'MAIN switch, meter, fuses', d:'The red MAIN switch turns the whole case on and off. The meter shows battery percent and watts in/out. Fuses are behind the small cover — if something is dead, ask NOMAD before touching them.'},
+  ];
+  const BESIDE = [
+    {id:'battery', name:'BATTERY BAY (beside the rack)', tag:'leave', t:'12 V 100 Ah lithium battery + solar controller + inverter', d:'About 1.3 kWh: roughly 6 hours of heavy AI use or a full day of quiet monitoring. The solar controller and battery monitor report to NOMAD. The small inverter powers the brain\'s own adapter. Nothing here needs your hands.'},
+    {id:'tray', name:'KEYBOARD TRAY (bottom)', tag:'touch', t:'Slide-out keyboard with trackpad', d:'Pull it out from the bottom front. Wired, so it works even before the screen does.'},
+    {id:'puck', name:'WI-FI PUCK (outside, on the lid)', tag:'touch', t:'GL.iNet Flint 3 — makes the NOMAD Wi-Fi', d:'Clips onto the lid top; one network cable and one power cable go to the case. It lives outside because Wi-Fi from inside a hard case is poor. Network name and password are on the lid label.'},
+    {id:'inlets', name:'SIDE INLETS', tag:'touch', t:'SOLAR (MC4) · DC IN (Anderson) · wall charger', d:'Solar panel plugs into SOLAR. A vehicle\'s 12 V or the wall power supply plugs into DC IN. NOMAD sees whichever is connected.'},
+  ];
+  const LIDINFO = {t:'15.6" touch screen', d:'This screen. It shows the dashboard: chat with NOMAD, battery and link status, the radio waterfall, and the map. The lid also has a pocket for the mesh handhelds and the Wi-Fi puck when packed.'};
+
+  const CHANNELS = [
+    {id:'screen', name:'At the case', how:'Tap the chat box on this screen. The keyboard slides out from the bottom.', note:'Always works when the case is on.'},
+    {id:'wifi', name:'Phone or laptop nearby', how:'Join Wi-Fi <b>NOMAD</b> (password on the lid label). Open the <b>Element</b> chat app or go to <span class="cmd">https://hermes.nomad.lan</span> and message <b>NOMAD</b>.', note:'No internet needed. Works for everyone in camp.'},
+    {id:'mesh', name:'Miles away, no signal', how:'Carry a mesh handheld (lid pocket). Pair it with the Meshtastic app on your phone and send a direct message to the node named <b>NOMAD</b>.', note:'Several miles line-of-sight. Replies are text-message length.'},
+    {id:'sms', name:'Anywhere with cell signal', how:'Text the case\'s phone number (lid label). NOMAD replies by text.', note:'No data plan needed, just one bar.'},
+    {id:'internet', name:'When internet is up', how:'Message the NOMAD bot on <b>Telegram</b>.', note:'Only when Starlink or cell data is connected.'},
+    {id:'winlink', name:'Over the ham radio', how:'Licensed operators: NOMAD sends and receives <b>email over shortwave (Winlink)</b> with no infrastructure at all.', note:'Slow (minutes), global.'},
+  ];
+
+  const SCEN = [
+    {c:'Start', t:'I just found this and need to know if it works', do:'Turn it on. When the dashboard appears, type <span class="cmd">/comms-check</span>.', hap:'In about two minutes NOMAD posts a table: GPS ✓, Wi-Fi ✓, mesh ✓, radio ✓, cell ✗ (no signal), satellite ✓, battery 84% — and a verdict like "GREEN — all links except cell."', how:'NOMAD sends a tiny test on each link and listens for the echo: a mesh ping to the spare handheld, a radio beacon it hears on its own receiver, a satellite test packet.'},
+    {c:'Emergency', t:'Someone is hurt and we have no phone signal', do:'Type <kbd>emergency: broken leg, two people, need evacuation</kbd> in the chat (or use the red EMERGENCY button). If the box is off, turn it on first — ready in two minutes.', hap:'NOMAD grabs the GPS position and sends on every link at once: satellite text, cell text, mesh broadcast, radio beacon, email-over-radio. Then it reports: "Satellite: delivered. Cell: no signal. Mesh: 1 node acknowledged. Radio: sent, not confirmed." It keeps retrying the failed ones.', how:'The satellite modem talks to satellites directly — no towers, just open sky. That one almost always works; the others are backups. Meanwhile ask the medical library: "How do I splint a lower leg fracture?"'},
+    {c:'Knowledge', t:'Is there any weather coming?', do:'Ask <kbd>What\'s the weather forecast?</kbd>', hap:'NOMAD tunes a receiver to the NOAA weather station, listens for three minutes, transcribes it, and summarizes: "Storm warning after 6 pm, winds 40 mph."', how:'Small software radios can tune anywhere. NOMAD picks the strongest weather station, records it, and runs speech-to-text on the box\'s GPU.'},
+    {c:'Comms', t:'Tell the group we\'re moving camp', do:'Say <kbd>Tell everyone on the mesh we\'re moving camp to the north ridge at 3 pm.</kbd>', hap:'NOMAD broadcasts on the mesh. Anyone with a mesh handheld gets it, miles away, with no cell service. NOMAD tells you who acknowledged.', how:'Mesh radios relay messages hop by hop. The case is one node; each handheld is another.'},
+    {c:'Knowledge', t:'I need to look something up and there\'s no internet', do:'Just ask. "How do I purify water with bleach?" "How do I fix a flooded carburetor?" Or browse <span class="cmd">library.nomad.lan</span> and <span class="cmd">maps.nomad.lan</span> on any device on the Wi-Fi.', hap:'NOMAD answers and cites the source, e.g. <i>[Water: Emergency Disinfection § Household bleach]</i>.', how:'The case stores full English Wikipedia with pictures, a medical encyclopedia, electronics/DIY/ham Q&A, and disaster/water/food/knots manuals — about 300 GB — plus street and topo maps.'},
+    {c:'Power', t:'The battery is getting low', do:'Usually nothing. Or ask <kbd>How long will the battery last?</kbd>', hap:'At 30% NOMAD switches to power-saving mode (screen dims, extra radios off) and tells you. At 15% it turns off everything non-essential and keeps mesh, GPS, network, and radio receiver alive so you can still get a message out.', how:'A battery monitor reports exact charge and current. NOMAD controls a bank of power switches for each device. You can override: "Keep the screen on."'},
+    {c:'Power', t:'It\'s sunny — are we charging?', do:'Unfold the panel, point it at the sun, plug into the <b>SOLAR</b> inlet. Ask <kbd>Are we charging?</kbd>', hap:'"Solar in: 140 W. Battery 62% and rising. Full in about 4 hours." NOMAD posts a short power report every half hour.', how:'A solar charge controller manages the panel and reports to the box. The case also charges from a vehicle 12 V outlet or the wall via <b>DC IN</b>.'},
+    {c:'Comms', t:'The internet is back / we have Starlink', do:'Plug the Starlink Mini into the <b>WAN</b> port on the switch and its power into the aux outlet. Or do nothing if there\'s cell data.', hap:'Within a minute: "WAN: Starlink is up." Everyone on the Wi-Fi has internet; Telegram works. If Starlink drops, it fails over to cell automatically and warns that cell data is metered.', how:'The router watches both links and switches between them. The whole camp shares the connection.'},
+    {c:'Comms', t:'Monitor the radio and wake me if someone calls for help', do:'Say <kbd>Monitor 146.52 tonight and alert me on the mesh if you hear "mayday" or "emergency."</kbd>', hap:'NOMAD listens all night and transcribes. A keyword pings your mesh handheld immediately with what was said. Morning: "Quiet night. Two check-ins, no distress calls."', how:'A software radio records the channel; speech-to-text runs on the GPU; keyword hits trigger a message on whichever link reaches you.'},
+    {c:'Comms', t:'Send an email when there\'s no internet at all', do:'Licensed operator: say <kbd>Send a Winlink email to my wife: we\'re safe, at the cabin, back Tuesday.</kbd> Raise the HF antenna on the mast.', hap:'NOMAD writes the email, picks a frequency likely to work now, tunes the radio, and transmits it over shortwave to a volunteer gateway that puts it on the real internet. A few minutes. Replies come back the same way.', how:'Winlink is a worldwide ham-radio email system. The 10-watt HF radio reaches hundreds to thousands of miles depending on conditions.'},
+    {c:'Comms', t:'A new person wants on the Wi-Fi', do:'Give them the network name and password from the lid label. Or: <kbd>Add Alex\'s phone as a guest.</kbd>', hap:'They get Wi-Fi, the library, the maps, and chat with NOMAD. Guests are kept apart from the case\'s controls.', how:'The router keeps separate lanes (VLANs) for internals, trusted users, guests, and gadgets.'},
+    {c:'Curiosity', t:'What\'s flying overhead? What sensors are nearby?', do:'Ask <kbd>What aircraft are nearby?</kbd> or <kbd>What sensors are transmitting around here?</kbd>', hap:'A list of aircraft with callsign, altitude, distance — or nearby wireless sensors (weather stations, tire sensors, doorbells).', how:'The software radios decode public, unencrypted broadcasts. Receive-only; nothing is transmitted.'},
+    {c:'Curiosity', t:'I want to use the AI on my own laptop or tablet', do:'On the Wi-Fi, point any app that supports Ollama or OpenAI-compatible models at <span class="cmd">http://ai.nomad.lan:11434</span> or <span class="cmd">http://ai.nomad.lan:8080/v1</span>.', hap:'Your device uses the box\'s GPU as if it were a cloud AI — local and private.', how:'The brain runs large models in its 128 GB of memory and shares them over Wi-Fi 7. A dedicated "wireless GPU" module can be added in the spare bay later.'},
+    {c:'Power', t:'It\'s hot out and the fans are loud', do:'Shade the case (tarp, awning, vehicle). Ask <kbd>How hot is it inside?</kbd>', hap:'NOMAD reports the temperature at the computer\'s intake. Above its comfort range it slows down and tells you; too hot and it switches to eco mode by itself.', how:'The computer is the one part that dislikes heat (comfort tops out ~30 °C / 86 °F). Sensors drive the fans; rules protect it. Closing the lid while hot triggers an automatic shutdown.'},
+    {c:'Start', t:'We\'re done — pack it up', do:'Type <kbd>shut down</kbd>. Wait for black screen and silent fans. MAIN off. Unplug antennas and solar, cap the jacks, stow the puck, slide the keyboard in, latch.', hap:'Everything saves and stops cleanly. The battery holds its charge for months.', how:'The shutdown command stops services in order so nothing is lost. The battery\'s protection circuit keeps it safe in storage.'},
+  ];
+
+  const SETUP = ['Stand the case on firm, shaded ground and open it','Clip the Wi-Fi puck to the lid top; connect its cable','Screw on antennas: GPS puck, mesh whip, VHF/UHF whip','(Licensed operator, if HF needed) raise the mast and wire antenna','Unfold the solar panel if there\'s sun; plug into SOLAR','MAIN on; wait for the dashboard','Run /comms-check','Ask NOMAD: "Hourly status to the chat, please"'];
+
+  const HW = [
+    {t:'The case and frame', i:['Pelican 1637 Air wheeled case (the shell)','10-inch rack frame, slide-out keyboard tray, two quiet fans, sealed vent plugs for transport','15.6" touch screen in the lid; compact keyboard with trackpad']},
+    {t:'The brain', i:['NVIDIA DGX Spark (or an identical ASUS / Dell / HP / Lenovo / MSI model): 128 GB memory, 4 TB drive','Runs NOMAD, the library, maps, and all radio software']},
+    {t:'Network', i:['Banana Pi BPI-R4 router (traffic cop; holds the 5G cell modem and SIM cards)','GL.iNet Flint 3 Wi-Fi 7 puck (outside on the lid; makes the NOMAD Wi-Fi)','MikroTik 10-port switch (wired ports)','Optional: Starlink Mini dish']},
+    {t:'Radios', i:['Icom IC-705: 10 W ham radio, shortwave to UHF, USB-controlled (licensed operator to transmit)','2× Quansheng UV-K5 handhelds (GMRS/FRS family radios)','3× Meshtastic mesh radios (one in the case, two handhelds) — license-free text for miles','1× RNode/Reticulum radio — encrypted mesh','Software-defined receivers (2× RTL-SDR, 1× Airspy) — listen to almost anything, transmit nothing','RockBLOCK Iridium satellite modem — short texts from anywhere with sky view (subscription)','GPS receiver — position and precise time','Flipper Zero — key fobs, NFC, infrared; a tinkering tool','Antennas: wire + 10 m mast for shortwave; whips for VHF/UHF, mesh, cell, Wi-Fi; GPS puck']},
+    {t:'Power', i:['12 V 100 Ah lithium (LiFePO4) battery — ~1.3 kWh','200 W folding solar panel; Victron charge controller and battery monitor','Small inverter for the brain\'s adapter; DC converters; fuse panel; software-controlled power switches','Side inlets: SOLAR (MC4), DC IN (Anderson), wall charger']},
+    {t:'Sensors and small parts', i:['ESP32 board: temperature/humidity, lid switch, fan control','Powered USB hub for the RF bay','Wi-Fi survey adapter and a Kali Linux toolkit (authorized testing only)']},
+  ];
+
+  // ---- render ---------------------------------------------------------------
+  const $ = s => document.querySelector(s);
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+
+  const nav = $('#nav');
+  PAGES.forEach(([id, label], i) => {
+    const b = el('button', '', `<span class="n">${i+1}</span><span>${label}</span>`);
+    b.dataset.go = id; nav.appendChild(b);
+  });
+  nav.appendChild(el('div', 'grow'));
+  nav.appendChild(el('div', 'foot', 'NOMAD-X · offline guide<br>No internet required'));
+
+  // rack
+  const units = $('#units');
+  UNITS.forEach(u => {
+    const d = el('div', 'unit', `<span class="u">${u.u}</span><span class="nm">${u.name}</span><span class="tag ${u.tag}">${{touch:'YOU TOUCH',leave:'LEAVE IT',ops:'OPERATOR'}[u.tag]}</span>`);
+    d.dataset.unit = u.id; units.appendChild(d);
+  });
+  const beside = $('#beside');
+  BESIDE.forEach(u => {
+    const d = el('div', 'unit', `<span class="u">—</span><span class="nm">${u.name}</span><span class="tag ${u.tag}">${{touch:'YOU TOUCH',leave:'LEAVE IT'}[u.tag]}</span>`);
+    d.dataset.unit = u.id; beside.appendChild(d);
+  });
+  function showUnit(id) {
+    document.querySelectorAll('[data-unit]').forEach(x => x.classList.toggle('active', x.dataset.unit === id));
+    const u = id === 'lid' ? LIDINFO : [...UNITS, ...BESIDE].find(x => x.id === id);
+    $('#unitDetail').innerHTML = `<div class="kicker">${id === 'lid' ? 'LID' : (u.name || '')}</div><h3>${u.t}</h3><p class="muted">${u.d}</p>`;
+  }
+  document.querySelectorAll('[data-unit]').forEach(x => x.addEventListener('click', () => showUnit(x.dataset.unit)));
+
+  // talk tabs
+  const tabs = $('#talkTabs'), panes = $('#talkPanes');
+  CHANNELS.forEach((c, i) => {
+    const t = el('button', 'tab' + (i ? '' : ' active'), c.name); t.setAttribute('role','tab'); t.dataset.tab = c.id; tabs.appendChild(t);
+    const p = el('div', 'tabpane' + (i ? '' : ' active'), `<div class="card"><h3>${c.name}</h3><p style="font-size:19px">${c.how}</p><p class="muted mono" style="font-size:14px">${c.note}</p></div>`);
+    p.dataset.pane = c.id; panes.appendChild(p);
+  });
+  tabs.addEventListener('click', e => {
+    const t = e.target.closest('.tab'); if (!t) return;
+    tabs.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+    panes.querySelectorAll('.tabpane').forEach(x => x.classList.toggle('active', x.dataset.pane === t.dataset.tab));
+  });
+
+  // scenarios
+  const cats = ['All', ...new Set(SCEN.map(s => s.c))];
+  const chips = $('#chips'), acc = $('#acc');
+  cats.forEach((c, i) => { const b = el('button', 'chip' + (i ? '' : ' active'), c); b.dataset.cat = c; chips.appendChild(b); });
+  SCEN.forEach((s, i) => {
+    const d = el('details', '', `<summary><span class="cat">${s.c}</span><span>${s.t}</span><span class="chev">▾</span></summary>
+      <div class="body"><div><div class="lbl">What you do</div>${s.do}</div><div><div class="lbl">What happens</div>${s.hap}</div><div><div class="lbl">How it works</div>${s.how}</div></div>`);
+    d.dataset.cat = s.c; if (i === 0) d.open = true; acc.appendChild(d);
+  });
+  chips.addEventListener('click', e => {
+    const b = e.target.closest('.chip'); if (!b) return;
+    chips.querySelectorAll('.chip').forEach(x => x.classList.toggle('active', x === b));
+    acc.querySelectorAll('details').forEach(d => d.style.display = (b.dataset.cat === 'All' || d.dataset.cat === b.dataset.cat) ? '' : 'none');
+  });
+
+  // setup checklist
+  const sc = $('#setupCheck');
+  const saved = (() => { try { return JSON.parse(LS('nomadx.setup') || '[]'); } catch (e) { return []; } })();
+  SETUP.forEach((s, i) => {
+    const l = el('label', saved[i] ? 'done' : '', `<input type="checkbox" ${saved[i] ? 'checked' : ''}><span>${s}</span>`);
+    l.querySelector('input').addEventListener('change', ev => { saved[i] = ev.target.checked; l.classList.toggle('done', ev.target.checked); LS('nomadx.setup', JSON.stringify(saved)); });
+    sc.appendChild(l);
+  });
+
+  // hardware
+  const hw = $('#hwGrid');
+  HW.forEach(h => hw.appendChild(el('div', 'card', `<h3>${h.t}</h3><ul class="muted">${h.i.map(x => `<li>${x}</li>`).join('')}</ul>`)));
+
+  // ---- navigation -----------------------------------------------------------
+  let idx = 0; const seen = new Set();
+  function go(id) {
+    idx = Math.max(0, PAGES.findIndex(p => p[0] === id));
+    seen.add(PAGES[idx][0]);
+    document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.dataset.page === PAGES[idx][0]));
+    nav.querySelectorAll('button[data-go]').forEach(b => { b.classList.toggle('active', b.dataset.go === PAGES[idx][0]); b.classList.toggle('done', seen.has(b.dataset.go) && b.dataset.go !== PAGES[idx][0]); });
+    $('#prog').style.width = `${(idx / (PAGES.length - 1)) * 100}%`;
+    $('#stepLabel').textContent = `${idx + 1} / ${PAGES.length}`;
+    $('#prevBtn').style.visibility = idx === 0 ? 'hidden' : 'visible';
+    $('#nextBtn').textContent = idx === PAGES.length - 1 ? 'Open the dashboard →' : 'Next →';
+    $('#main').scrollTo({ top: 0 });
+    LS('nomadx.page', PAGES[idx][0]);
+  }
+  document.addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (b) go(b.dataset.go); });
+  $('#prevBtn').addEventListener('click', () => go(PAGES[Math.max(0, idx - 1)][0]));
+  $('#nextBtn').addEventListener('click', () => { if (idx === PAGES.length - 1) location.href = CFG.dashboard; else go(PAGES[idx + 1][0]); });
+  document.addEventListener('keydown', e => {
+    if ($('#overlay').classList.contains('open')) { if (e.key === 'Escape') closeEmg(); return; }
+    if (e.key === 'ArrowRight' || e.key === 'PageDown') $('#nextBtn').click();
+    if (e.key === 'ArrowLeft' || e.key === 'PageUp') $('#prevBtn').click();
+  });
+
+  // ---- theme / clock / status ----------------------------------------------
+  const applyTheme = t => { document.documentElement.dataset.theme = t; $('#themeBtn').textContent = t === 'sun' ? '☾ Night' : '☀ Sunlight'; LS('nomadx.theme', t); };
+  $('#themeBtn').addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'sun' ? 'dark' : 'sun'));
+  applyTheme(LS('nomadx.theme') || 'dark');
+
+  const tick = () => { const d = new Date(); $('#clock').textContent = d.toTimeString().slice(0, 5) + ' ' + d.toISOString().slice(0, 10); };
+  tick(); setInterval(tick, 15000);
+
+  async function ping() {
+    const pill = $('#hermesPill'), txt = $('#hermesText');
+    try {
+      const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 3000);
+      const r = await fetch(CFG.hermesHealth, { signal: ctl.signal, cache: 'no-store' }); clearTimeout(t);
+      pill.className = 'pill ' + (r.ok ? 'ok' : 'bad'); txt.textContent = r.ok ? 'NOMAD online' : 'NOMAD not responding';
+    } catch (e) { pill.className = 'pill bad'; txt.textContent = 'NOMAD not reachable from this screen'; }
+  }
+  ping(); setInterval(ping, 30000);
+
+  // ---- emergency ------------------------------------------------------------
+  const overlay = $('#overlay');
+  const openEmg = () => { overlay.classList.add('open'); $('#emgStatus').textContent = ''; setTimeout(() => $('#emgText').focus(), 50); };
+  const closeEmg = () => overlay.classList.remove('open');
+  $('#emgBtn').addEventListener('click', openEmg); $('#emgBtn2').addEventListener('click', openEmg); $('#emgClose').addEventListener('click', closeEmg);
+  $('#emgSend').addEventListener('click', async () => {
+    const text = $('#emgText').value.trim(); const st = $('#emgStatus');
+    if (!text) { st.textContent = 'Type what\'s wrong first.'; $('#emgText').focus(); return; }
+    st.textContent = 'Sending to NOMAD…'; $('#emgSend').disabled = true;
+    try {
+      const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 8000);
+      const r = await fetch(CFG.emergencyWebhook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: 'firstboot-screen', text, ts: new Date().toISOString() }), signal: ctl.signal });
+      clearTimeout(t);
+      st.textContent = r.ok ? 'NOMAD has it and is sending on every link. Watch the dashboard chat for delivery results.' : `NOMAD answered with an error (${r.status}). Open the dashboard chat and type "emergency …".`;
+    } catch (e) {
+      st.textContent = 'Could not reach NOMAD from this screen. Open the dashboard chat and type "emergency …" — same result.';
+    } finally { $('#emgSend').disabled = false; }
+  });
+
+  // ---- finish ----------------------------------------------------------------
+  $('#dontShow').checked = LS('nomadx.firstboot.done') === '1';
+  $('#dontShow').addEventListener('change', e => LS('nomadx.firstboot.done', e.target.checked ? '1' : '0'));
+  $('#openDash').href = CFG.dashboard;
+  $('#resetBtn').addEventListener('click', () => { try { localStorage.removeItem('nomadx.setup'); localStorage.removeItem('nomadx.page'); } catch (e) {} location.reload(); });
+
+  go(new URLSearchParams(location.search).get('page') || 'welcome');
+})();
+</script>
+</body>
+</html>

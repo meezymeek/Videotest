@@ -310,6 +310,7 @@ Secrets go in `~/.hermes/.env` (`HA_TOKEN=...`), never in `config.yaml`.
 
 - **Primary GUI:** `hermes dashboard --host 0.0.0.0 --port 9119 --no-open` behind Caddy at `https://hermes.nomad.lan`, basic-auth via `HERMES_DASHBOARD_BASIC_AUTH_USERNAME` / `..._PASSWORD_HASH` / `..._SECRET`. Pages: Chat (embedded TUI), Config, Skills, MCP, Cron, Sessions, Logs, Channels, Pairing.
 - **Lid touchscreen:** Chromium kiosk → a Home Assistant dashboard with an embedded Hermes Chat iframe, power/RF status tiles, OpenWebRX waterfall, and map. Touch keyboard via the on-screen keyboard; physical keyboard on the tray.
+- **First-boot guide:** `stack/firstboot/index.html` — a self-contained, offline operator's guide (no CDN, no fonts) shown in the kiosk on first boot: 60-second start, tour of the rack, channels, 15 scenarios, setup checklist, hardware list, and an **EMERGENCY** panel that POSTs to the Hermes webhook route `emergency` (`:8644/webhooks/emergency`) and reports honestly if it can't reach NOMAD. It pings `:8642/health` for the status pill. Kiosk launch: `chromium --kiosk --app=file:///opt/nomad/stack/firstboot/index.html`; when the page's "Don't show again" flag is set (localStorage `nomadx.firstboot.done`) the kiosk script opens the HA dashboard instead. Dashboard Help → "First-boot guide" reopens it.
 - **Terminal:** `hermes` TUI over SSH from any laptop.
 - Run as a service: `hermes gateway install` (user systemd unit `hermes-gateway`), `sudo loginctl enable-linger $USER`.
 

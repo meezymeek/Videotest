@@ -94,6 +94,11 @@ gateway:
             prompt: "ALERT received from the node: {{ body }}. Assess, act per SOUL.md, and report."
             deliver: matrix
             skills: [comms-check, power-management, mesh-ops]
+          emergency:                       # first-boot screen EMERGENCY button and HA panic button
+            secret: "INSECURE_NO_AUTH"     # loopback-only; the kiosk runs on the same host
+            prompt: "EMERGENCY declared from the lid screen: {{ body }}. Follow SOUL.md standing order 5: get GPS fix, send on every path (sat, SMS, mesh, APRS, Winlink), then report what went out and what was acknowledged."
+            deliver: matrix
+            skills: [mesh-ops, radio-ops, incident-log]
           comms-check:                     # cron/HA-triggered self-test
             secret: "${WEBHOOK_SECRET}"
             prompt: "Run /comms-check and post the table."
