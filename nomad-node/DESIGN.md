@@ -92,7 +92,13 @@ The compute choice is driven by three constraints: Hermes needs a model with **�
 | Cost | ~$3,000–4,000 | ~$2,000 (MS-01 + card) | ~$2,000 |
 | GPU fit notes | None needed | RTX 4000 SFF Ada is dual-slot low-profile, 70 W, no aux power; MS-01 fits it (community-confirmed, "most powerful GPU you can fit in MS-01"). Minisforum **MS-A2** is single-slot only — needs a cooler mod; avoid. | n/a |
 
-**Recommendation:** Path A. The 128 GB + CUDA combination is what makes a *good* local agent (gpt-oss-120b at full context) and keeps the door open for CUDA-based GPU-over-IP. If budget rules, Path B with gpt-oss-20b is a very capable agent box and is the easiest on the DC bus.
+**Decision (2026-11-03): Path A — a GB10 / 128 GB box.** The 128 GB + CUDA combination is what makes a *good* local agent (gpt-oss-120b at full context) and keeps the door open for CUDA-based GPU-over-IP. Path B (MS-01 + RTX 4000 SFF Ada, gpt-oss-20b) stays in the doc only as the fallback if no 128 GB GB10 can be sourced.
+
+**Sourcing a GB10 (read before buying):**
+- **Must be the 128 GB model.** NVIDIA launched a **64 GB / 1 TB** DGX Spark at $4,999 on 2026-10-23; it cannot hold gpt-oss-120b (~65 GB) plus 64k context. Do not buy it for this build.
+- **Pricing is volatile.** 128 GB Founders Edition: $3,999 at launch (2025-10) → $4,699 (2026-02) → reportedly ~$6,950 (2026-10) during the memory shortage; third-party listings $8k+. Budget $4,700–7,000 and **VERIFY** the price the day you order.
+- **OEM twins are the same machine.** The GB10 superchip, 128 GB LPDDR5x, ~150 × 150 × 50 mm chassis, USB-C PD power, and NVIDIA AI software stack ship as: **ASUS Ascent GX10**, **Dell Pro Max with GB10**, **HP ZGX Nano**, **Lenovo ThinkStation PGX**, **MSI EdgeXpert MS-C931**, **Gigabyte AI TOP Atom**, **Acer Veriton GN100**. Buy whichever is in stock; differences are cosmetic plus storage size (1 TB on some — add an external NVMe enclosure over USB4 or use the switch-attached NAS path if so). **VERIFY** the exact dimensions and that the unit you pick ships with 128 GB and the ConnectX-7 / 10GbE port set you need.
+- Order it first; it's the long-lead item. Everything else in the BOM is in stock.
 
 ### 3.3 Network
 
@@ -159,7 +165,11 @@ With this, the agent can run an automated **comms check**: key the radio, send a
 
 **DC distribution (no inverter):**
 - 12 V bus → Blue Sea fuse block → rails.
-- 12 V → **19 V 10 A** DC-DC (MS-01 path) **or** 12 V → **240 W USB-C EPR PD** supply for the Spark. **VERIFY**: 12 V-input 240 W PD supplies are rare; validated option is a 12 V → 48 V boost feeding a 240 W PD controller board, or a 300 W pure-sine inverter dedicated to the Spark brick as fallback (~10% loss).
+- **Compute power (GB10/Spark).** The Spark is powered *only* over USB-C and negotiates **PD 3.1 EPR at the 48 V profile** (measured ~181 W at 47 V/3.85 A under sustained load; system peak 240 W = ~140 W SoC + ~100 W for ConnectX-7, SSD, and USB-C device budget). There is no 12 V barrel input. Two ways to feed it from the 12 V bus:
+  - **v1 (do this first):** a **300 W pure-sine inverter** (e.g. Victron Phoenix 12/375 or Renogy 300 W) on its own relay, feeding the **stock NVIDIA 240 W adapter**. ~10% loss, zero compatibility risk, and the inverter doubles as a shore-style AC outlet for anything else. Idle inverter draw ~5–8 W — switch it off in `eco`.
+  - **v2 (optimization):** 12 V → 48 V 300 W boost converter feeding a **USB-C PD 3.1 EPR source module** (48 V/5 A, must advertise AVS). **VERIFY** the module actually negotiates EPR with the Spark before committing — many "240 W" boards are sink-side or cap at 140 W. Saves ~15–20 W over v1.
+  - Either way, a **USB-C PD meter** inline (EPR-rated) feeds the `compute` rail reading to HA.
+- 12 V → **19 V 10 A** DC-DC only if the Path B mini PC is used instead.
 - 12 V → 13.8 V regulated for IC-705 (it wants 13.8 V; don't feed it raw battery on a full charge of 14.4 V — **VERIFY** IC-705 input tolerance; spec says 13.8 V ±15%).
 - 12 V → 5 V 10 A rail for USB hub, ESP32s, relays.
 - 12 V → switch and router directly (both accept 12 V).
@@ -383,21 +393,21 @@ Pelican 1620, rack frame, bulkheads, lid screen, keyboard tray, fans, cable dres
 | Group | Items | Est. |
 |---|---|---|
 | Enclosure | Pelican 1620, rack rails, 2020 extrusion, prints, drawer slides, fans, bulkheads, Anderson/MC4 inlets | 600 |
-| Compute | DGX Spark (Path A) **or** MS-01 + RTX 4000 SFF Ada + 2× 4 TB NVMe (Path B) | 3,500 / 2,300 |
+| Compute | GB10 128 GB box (DGX Spark or OEM twin; Path A) **or** MS-01 + RTX 4000 SFF Ada + 2× 4 TB NVMe (Path B fallback) | 4,700–7,000 / 2,300 |
 | Display/input | 15.6" touch OLED, keyboard/trackpad | 350 |
 | Network | BPI-R4 + BE14 + antennas, CRS310 switch, RM520N modem + adapter, cables/DACs | 650 |
 | Radio | IC-705, DigiRig, antennas + mast, 2× UV-K5, 2× RTL-SDR v4, Airspy R2, 2× Heltec V3, T-Beam (RNode), ZED-F9P GPS, RockBLOCK + Iridium plan, Flipper Zero, HackRF (opt.) | 2,400 |
-| Power | 100 Ah LiFePO4, Victron MPPT 100/30 + SmartShunt, 200 W panel, DC-DCs, fuse block, relay board, Mean Well shore PSU | 1,100 |
+| Power | 100 Ah LiFePO4, Victron MPPT 100/30 + SmartShunt, 200 W panel, 300 W pure-sine inverter (Spark), DC-DCs, fuse block, relay board, Mean Well shore PSU, EPR PD meter | 1,300 |
 | Sensing/misc | ESP32-S3, BME280, INA226s, powered USB hub, industrial cabling | 200 |
 | Optional | Starlink Mini (+ plan), Alfa AWUS036AXML, WiCi One (bay reserved) | 600 + 2,600 |
-| **Total (Path A, no optionals)** | | **~8,800** |
-| **Total (Path B, no optionals)** | | **~7,600** |
+| **Total (Path A, no optionals)** | | **~10,200–12,500** (dominated by GB10 price on the day) |
+| **Total (Path B, no optionals)** | | **~7,800** |
 
 ---
 
 ## 9. Open questions (resolve before ordering)
 
-1. **Compute path** — Spark (best agent, awkward 240 W PD on DC) vs MS-01+Ada (easy DC, 20 GB). Decide after pricing a 12 V→240 W EPR supply.
+1. ~~Compute path~~ — **Decided: GB10 128 GB (Spark or OEM twin).** Remaining: which OEM box is actually obtainable at a sane price, and whether it ships with 4 TB or 1 TB (changes the storage plan in §4.3).
 2. **Pelican 1620 vs 1637 Air** — measure rack depth with the screen in the lid. Need ≥ 200 mm bay depth + 30 mm cable bend.
 3. **BPI-R4 + BE14 OpenWrt maturity** vs Flint 3 convenience (and whether Flint 3 antennas detach).
 4. **WiCi One** physical size/power — ask the vendor; adjust the reserved bay.
@@ -413,5 +423,6 @@ Pelican 1620, rack frame, bulkheads, lid screen, keyboard tray, fans, cable dres
 - Kiwix ZIM listings: download.kiwix.org/zim/{wikipedia,other,stack_exchange,wiktionary,wikibooks,wikiversity,wikivoyage,devdocs}
 - Minisforum MS-01/MS-A2 GPU fit: williamlam.com (RTX 4000 Ada in MS-A2 with cooler mod), techenclave MS-01 threads, Notebookcheck MS-A2 review
 - DGX Spark vs Strix Halo: The Register (2025-12), Liliputing, Notebookcheck
+- DGX Spark pricing/64 GB variant: The Register (2026-10-02), ServeTheHome, Notebookcheck; power: NVIDIA developer forum "DGX Spark Power Clarification", ChargerLAB adapter teardown/compatibility tests
 - DeskPi RackMate dimensions: DeskPi/52Pi listings
 - Meshtastic↔HA: meshtastic2hass (PyPI), homeassistant-meshtastic
