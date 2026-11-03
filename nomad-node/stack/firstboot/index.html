@@ -29,7 +29,9 @@
     radial-gradient(800px 500px at -10% 110%, rgba(90,169,255,.08), transparent 60%)}
   button{font:inherit;color:inherit}
   a{color:var(--amber-2)}
-  .app{display:grid;grid-template-columns:300px 1fr;grid-template-rows:72px 1fr;height:100vh;position:relative;z-index:1}
+  .app{display:grid;grid-template-columns:300px minmax(0,1fr);grid-template-rows:72px 1fr;height:100vh;position:relative;z-index:1}
+  .top,.main{min-width:0}
+  .brand{min-width:0;white-space:nowrap}
   /* top bar */
   .top{grid-column:1/-1;display:flex;align-items:center;gap:18px;padding:0 24px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--panel) 85%,transparent);backdrop-filter:blur(8px)}
   .brand{display:flex;align-items:center;gap:12px;font-family:var(--mono);font-weight:700;letter-spacing:.12em;font-size:20px}
@@ -55,6 +57,9 @@
   .nav button.done .n{border-color:var(--green);color:var(--green)}
   .nav .grow{flex:1}
   .nav .foot{font-size:13px;color:var(--dim);padding:10px 14px;font-family:var(--mono)}
+  .nav .navStatus{display:none;align-items:center;gap:8px;font-family:var(--mono);font-size:13px;color:var(--muted);padding:10px 14px}
+  .nav .navStatus .dot{width:10px;height:10px;border-radius:50%;background:var(--dim);flex:none}
+  .nav .navStatus.ok .dot{background:var(--green)} .nav .navStatus.bad .dot{background:var(--red)}
   /* main */
   .main{overflow:auto;padding:36px 48px 120px;scroll-behavior:smooth}
   .page{display:none;max-width:1240px;margin:0 auto;animation:fade .25s ease}
@@ -145,20 +150,103 @@
   .toggle{display:flex;align-items:center;gap:12px;cursor:pointer}
   .toggle input{width:48px;height:28px;accent-color:var(--amber)}
   .sr{position:absolute;left:-9999px}
+  /* ---- responsive: fluid type, then desktop → tablet rail → phone drawer ---- */
+  h1{font-size:clamp(28px,3.4vw + 8px,44px)}
+  h2{font-size:clamp(22px,2vw + 8px,30px)}
+  .lead{font-size:clamp(17px,1vw + 11px,21px)}
+  body{font-size:clamp(16px,.5vw + 13px,18px)}
+  .menuBtn{display:none}
+  .navScrim{display:none}
+  @media (max-width:1280px){
+    .app{grid-template-columns:240px minmax(0,1fr)}
+    .pager{left:240px;padding-left:28px;padding-right:28px}
+    .main{padding-left:28px;padding-right:28px}
+    .g4{grid-template-columns:repeat(2,1fr)}
+  }
+  /* tablet: compact numbered rail */
   @media (max-width:1100px){
-    .app{grid-template-columns:1fr}
-    .nav{display:none}
-    .pager{left:0;padding:12px 16px}
-    .main{padding:20px 16px 110px}
-    h1{font-size:32px}
-    .g2,.g3,.g4,.hero,.rackwrap,.acc .body{grid-template-columns:1fr}
+    .app{grid-template-columns:76px minmax(0,1fr)}
+    .nav{padding:14px 10px}
+    .nav button{justify-content:center;padding:0}
+    .nav button > span:not(.n){display:none}
+    .nav button .n{width:36px;height:36px;font-size:15px}
+    .nav .foot{display:none}
+    .pager{left:76px}
+    .hero,.rackwrap,.acc .body{grid-template-columns:1fr}
+    .rackwrap .detail{position:static}
+    .detail .card{min-height:0}
+    .g3{grid-template-columns:repeat(2,1fr)}
+    .overlay{padding:20px}
+    .overlay .links{grid-template-columns:repeat(3,1fr)}
+  }
+  @media (max-width:900px){
+    .g2,.g3,.g4{grid-template-columns:1fr}
+    .top .brand .muted{display:none}
+    .brand{flex:none}
+    #clock{display:none}
+    .top .pill #hermesText{display:none}
+    .top .pill{padding:8px 10px}
+  }
+  /* phone: drawer menu, condensed bars */
+  @media (max-width:640px){
+    .app{grid-template-columns:minmax(0,1fr);grid-template-rows:60px 1fr}
+    .top{gap:8px;padding:0 12px}
+    .brand{font-size:15px;letter-spacing:.08em;gap:8px}
+    .brand .mark{width:28px;height:28px}
+    .brand .mark svg{width:28px;height:28px}
+    #clock,.top .pill{display:none}
+    #themeBtn{padding:0;width:44px;justify-content:center}
+    #themeBtn .lbl{display:none}
+    #emgBtn{padding:0 10px;font-size:13px;letter-spacing:.02em}
+    .menuBtn{display:inline-flex;width:44px;padding:0;justify-content:center;flex:none}
+    .nav .navStatus{display:flex}
+    .nav{position:fixed;inset:60px auto 0 0;width:min(84vw,320px);z-index:40;background:var(--panel);border-right:1px solid var(--line);transform:translateX(-105%);transition:transform .22s ease;padding:14px;box-shadow:var(--shadow)}
+    .nav.open{transform:none}
+    .nav button{justify-content:flex-start;padding:0 12px}
+    .nav button > span:not(.n){display:inline}
+    .nav button .n{width:28px;height:28px;font-size:13px}
+    .nav .foot{display:block}
+    .navScrim{position:fixed;inset:60px 0 0 0;background:rgba(0,0,0,.5);z-index:39}
+    .navScrim.open{display:block}
+    .main{padding:18px 16px 120px}
+    .pager{left:0;padding:10px 16px;gap:8px}
+    .pager .progress{display:none}
+    .pager .btn{flex:1;justify-content:center;min-height:48px}
+    .pager #stepLabel{order:-1;width:100%;text-align:center;margin-bottom:2px}
+    .pager{flex-wrap:wrap}
+    .hero .big .btn{min-height:58px;font-size:17px;flex-wrap:wrap;padding:12px 16px}
+    .hero .big .btn .sub{margin-left:0;width:100%}
+    .steps li{padding:12px 14px;gap:12px}
+    .unit{padding:0 10px;gap:8px}
+    .unit .tag{font-size:10px;padding:2px 6px}
+    .chips{gap:8px}
+    .chip{min-height:40px;padding:0 12px;font-size:15px}
+    .acc summary{padding:14px 16px;font-size:17px;gap:10px;flex-wrap:wrap}
+    .acc .body{padding:0 12px 12px;gap:10px}
+    .tabs{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}
+    .tab{white-space:nowrap}
+    .overlay{padding:12px}
+    .overlay .box{padding:20px;border-radius:14px}
+    .overlay h2{font-size:26px}
     .overlay .links{grid-template-columns:repeat(2,1fr)}
+    .overlay textarea{font-size:17px;min-height:110px}
+    #emgSend{width:100%;justify-content:center}
+    kbd{font-size:14px;padding:1px 7px}
+  }
+  /* short landscape phones */
+  @media (max-height:480px) and (max-width:900px){
+    .app{grid-template-rows:52px 1fr}
+    .nav,.navScrim{inset-block-start:52px}
+    .main{padding-bottom:90px}
+    .pager{padding:8px 16px}
+    .pager .btn{min-height:40px}
   }
 </style>
 </head>
 <body>
 <div class="app">
   <header class="top">
+    <button class="btn sm ghost menuBtn" id="menuBtn" aria-label="Open sections menu" aria-controls="nav" aria-expanded="false">☰</button>
     <div class="brand">
       <span class="mark" aria-hidden="true">
         <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="2">
@@ -177,6 +265,7 @@
     <button class="btn sm danger" id="emgBtn">EMERGENCY</button>
   </header>
 
+  <div class="navScrim" id="navScrim"></div>
   <nav class="nav" id="nav" aria-label="Guide sections"></nav>
 
   <main class="main" id="main">
@@ -424,6 +513,7 @@
     b.dataset.go = id; nav.appendChild(b);
   });
   nav.appendChild(el('div', 'grow'));
+  nav.appendChild(el('div', 'navStatus', '<span class="dot"></span><span class="t">checking NOMAD…</span>'));
   nav.appendChild(el('div', 'foot', 'NOMAD-X · offline guide<br>No internet required'));
 
   // rack
@@ -499,17 +589,33 @@
     $('#main').scrollTo({ top: 0 });
     LS('nomadx.page', PAGES[idx][0]);
   }
-  document.addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (b) go(b.dataset.go); });
+  document.addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (b) { go(b.dataset.go); closeNav(); } });
+
+  // device class: phone / tablet / desktop, re-evaluated on resize and rotation
+  const DEVICE = [['phone', '(max-width:640px)'], ['tablet', '(max-width:1100px)']];
+  const navScrim = $('#navScrim'), menuBtn = $('#menuBtn');
+  const closeNav = () => { nav.classList.remove('open'); navScrim.classList.remove('open'); menuBtn.setAttribute('aria-expanded', 'false'); };
+  const setDevice = () => {
+    const d = (DEVICE.find(([, q]) => matchMedia(q).matches) || ['desktop'])[0];
+    document.documentElement.dataset.device = d;
+    if (d !== 'phone') closeNav();
+    nav.querySelectorAll('button[data-go]').forEach(b => b.title = d === 'tablet' ? b.textContent.trim().slice(1) : '');
+  };
+  setDevice(); addEventListener('resize', setDevice); addEventListener('orientationchange', setDevice);
+  menuBtn.addEventListener('click', () => { const open = !nav.classList.contains('open'); nav.classList.toggle('open', open); navScrim.classList.toggle('open', open); menuBtn.setAttribute('aria-expanded', String(open)); });
+  navScrim.addEventListener('click', closeNav);
   $('#prevBtn').addEventListener('click', () => go(PAGES[Math.max(0, idx - 1)][0]));
   $('#nextBtn').addEventListener('click', () => { if (idx === PAGES.length - 1) location.href = CFG.dashboard; else go(PAGES[idx + 1][0]); });
   document.addEventListener('keydown', e => {
     if ($('#overlay').classList.contains('open')) { if (e.key === 'Escape') closeEmg(); return; }
+    if (e.key === 'Escape') closeNav();
     if (e.key === 'ArrowRight' || e.key === 'PageDown') $('#nextBtn').click();
     if (e.key === 'ArrowLeft' || e.key === 'PageUp') $('#prevBtn').click();
   });
 
   // ---- theme / clock / status ----------------------------------------------
-  const applyTheme = t => { document.documentElement.dataset.theme = t; $('#themeBtn').textContent = t === 'sun' ? '☾ Night' : '☀ Sunlight'; LS('nomadx.theme', t); };
+  const themeLabel = t => `${t === 'sun' ? '☾' : '☀'} <span class="lbl">${t === 'sun' ? 'Night' : 'Sunlight'}</span>`;
+  const applyTheme = t => { document.documentElement.dataset.theme = t; $('#themeBtn').innerHTML = themeLabel(t); LS('nomadx.theme', t); };
   $('#themeBtn').addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'sun' ? 'dark' : 'sun'));
   applyTheme(LS('nomadx.theme') || 'dark');
 
@@ -521,8 +627,12 @@
     try {
       const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 3000);
       const r = await fetch(CFG.hermesHealth, { signal: ctl.signal, cache: 'no-store' }); clearTimeout(t);
-      pill.className = 'pill ' + (r.ok ? 'ok' : 'bad'); txt.textContent = r.ok ? 'NOMAD online' : 'NOMAD not responding';
-    } catch (e) { pill.className = 'pill bad'; txt.textContent = 'NOMAD not reachable from this screen'; }
+      setStatus(r.ok ? 'ok' : 'bad', r.ok ? 'NOMAD online' : 'NOMAD not responding');
+    } catch (e) { setStatus('bad', 'NOMAD not reachable from this screen'); }
+  }
+  function setStatus(cls, text) {
+    $('#hermesPill').className = 'pill ' + cls; $('#hermesText').textContent = text;
+    const ns = nav.querySelector('.navStatus'); if (ns) { ns.className = 'navStatus ' + cls; ns.querySelector('.t').textContent = text; }
   }
   ping(); setInterval(ping, 30000);
 
