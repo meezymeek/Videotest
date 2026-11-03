@@ -49,21 +49,55 @@ mcp_servers:
       HA_TOKEN: "${HA_TOKEN}"
     timeout: 120
 
+matrix:
+  require_mention: false
+  auto_thread: true
+
 gateway:
   systemd_watchdog_seconds: 120
   platforms:
     matrix:
-      enabled: true                        # homeserver/user/token in .env: MATRIX_HOMESERVER, MATRIX_USER_ID, MATRIX_ACCESS_TOKEN (VERIFY names)
+      enabled: true                        # credentials in .env (MATRIX_HOMESERVER, MATRIX_ACCESS_TOKEN, MATRIX_ALLOWED_USERS)
     homeassistant:
-      enabled: true
+      enabled: true                        # plugin: hermes plugins install homeassistant; HASS_TOKEN/HASS_URL in .env
+      extra:
+        url: http://127.0.0.1:8123
+        watch_entities:
+          - binary_sensor.nomad_lid_closed
+          - sensor.nomad_battery_soc
+          - sensor.nomad_wan_active
+        cooldown_seconds: 30
     email:
-      enabled: true                        # IMAP/SMTP to the local mail server (Winlink in/out)
+      enabled: true                        # local MTA fed by Pat/Winlink; creds in .env
+      require_authenticated_sender: false  # local MTA doesn't stamp Authentication-Results; allowlist mitigates
+      extra:
+        imap_host: 127.0.0.1
+        imap_security: starttls
+        imap_tls_verify: false
+        smtp_host: 127.0.0.1
+        smtp_security: starttls
+        smtp_tls_verify: false
     sms:
-      enabled: false                       # enable once the modem path is validated (or use the Node-RED bridge)
+      enabled: false                       # Hermes SMS is Twilio-only; SMS goes modem -> gammu -> Node-RED -> API server
     telegram:
       enabled: true                        # only works when WAN is up; harmless otherwise
     discord:
       enabled: false
+    webhook:
+      enabled: true
+      extra:
+        port: 8644
+        rate_limit: 30
+        routes:
+          alert:                           # HA posts nomad/alerts here
+            secret: "${WEBHOOK_SECRET}"
+            prompt: "ALERT received from the node: {{ body }}. Assess, act per SOUL.md, and report."
+            deliver: matrix
+            skills: [comms-check, power-management, mesh-ops]
+          comms-check:                     # cron/HA-triggered self-test
+            secret: "${WEBHOOK_SECRET}"
+            prompt: "Run /comms-check and post the table."
+            deliver: matrix
   channel_overrides:
     meshtastic:                            # used by the bridge via the API server
       system_prompt_suffix: "Reply in <= 200 characters. No markdown."

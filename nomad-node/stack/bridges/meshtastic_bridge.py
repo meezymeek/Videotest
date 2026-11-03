@@ -4,8 +4,8 @@
 - A DM addressed to this node is forwarded to the Hermes API server; the reply goes back
   to the sender over the mesh, chunked to 200 chars.
 
-VERIFY the Hermes API Server URL/shape (env HERMES_API) against the Hermes "API Server"
-platform docs; this assumes an OpenAI-compatible chat endpoint.
+Hermes API Server (verified): POST http://127.0.0.1:8642/v1/chat/completions, bearer API_SERVER_KEY.
+Enable with API_SERVER_ENABLED=true in ~/.hermes/.env.
 
 Deps: pip install meshtastic paho-mqtt httpx pypubsub
 """

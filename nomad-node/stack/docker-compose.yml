@@ -127,7 +127,7 @@ services:
     network_mode: host
     devices:
       - /dev/radio-ic705:/dev/radio-ic705
-    command: rigctld -m 3085 -r /dev/radio-ic705 -s 115200 -T 0.0.0.0 -t 4532   # 3085 = IC-705 (VERIFY with rigctl -l)
+    command: rigctld -m ${IC705_HAMLIB_MODEL} -r /dev/radio-ic705 -s 115200 -T 0.0.0.0 -t 4532   # get the id: rigctl -l | grep -i 705
 
   pat:
     <<: *restart
@@ -155,7 +155,8 @@ services:
     environment:
       - MESH_PORT=/dev/mesh-0
       - MQTT_HOST=127.0.0.1
-      - HERMES_API=http://127.0.0.1:8642/v1/chat/completions   # Hermes API Server; VERIFY port/path in Hermes docs
+      - HERMES_API=http://127.0.0.1:8642/v1/chat/completions   # Hermes API Server (API_SERVER_PORT default 8642)
+      - HERMES_API_KEY=${API_SERVER_KEY}
     command: python meshtastic_bridge.py
 
   gpsd:

@@ -3,6 +3,9 @@
 # USB relay switches (switch.nomad_relay_*), ESPHome case node (sensor.nomad_case_temp, binary_sensor.nomad_lid_closed,
 # fan.nomad_case_fans), input_select.nomad_power_mode, and an MQTT notify to Hermes via Node-RED (notify.hermes_matrix).
 
+# Thermal targets come from NVIDIA's DGX Spark hardware guide: ideal operating range 5-30 C.
+# sensor.nomad_compute_inlet_temp is the BME280 at the Spark's intake; sensor.nomad_case_temp is ambient inside the case.
+
 - alias: "NOMAD: lid closed while hot -> shut down compute"
   trigger:
     - platform: state
@@ -11,25 +14,38 @@
       for: "00:00:30"
   condition:
     - condition: numeric_state
-      entity_id: sensor.nomad_case_temp
-      above: 40
+      entity_id: sensor.nomad_compute_inlet_temp
+      above: 32
   action:
     - service: notify.hermes_matrix
       data: { message: "Lid closed with case at {{ states('sensor.nomad_case_temp') }} C — shutting compute down in 30 s." }
     - delay: "00:00:30"
     - service: shell_command.compute_shutdown   # ssh compute 'sudo systemctl poweroff'
 
-- alias: "NOMAD: fan curve"
+- alias: "NOMAD: fan curve (compute inlet)"
   trigger:
     - platform: state
-      entity_id: sensor.nomad_case_temp
+      entity_id: sensor.nomad_compute_inlet_temp
   action:
     - service: fan.set_percentage
       target: { entity_id: fan.nomad_case_fans }
       data:
         percentage: >
-          {% set t = states('sensor.nomad_case_temp') | float(30) %}
-          {{ 20 if t < 30 else (50 if t < 38 else (80 if t < 45 else 100)) }}
+          {% set t = states('sensor.nomad_compute_inlet_temp') | float(25) %}
+          {{ 25 if t < 25 else (50 if t < 30 else (80 if t < 35 else 100)) }}
+
+- alias: "NOMAD: inlet > 40 C -> eco + alert"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.nomad_compute_inlet_temp
+      above: 40
+      for: "00:02:00"
+  action:
+    - service: input_select.select_option
+      target: { entity_id: input_select.nomad_power_mode }
+      data: { option: "eco" }
+    - service: rest_command.hermes_webhook_alert   # POST to http://127.0.0.1:8644/webhooks/alert with HMAC
+      data: { body: "Compute inlet {{ states('sensor.nomad_compute_inlet_temp') }} C for 2 min; forced eco. Shade the case or stop AI jobs." }
 
 - alias: "NOMAD: SoC < 30% -> eco"
   trigger:

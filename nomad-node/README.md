@@ -8,6 +8,7 @@ nomad-node/
 ├── hermes/
 │   ├── SOUL.md                # Hermes persona + standing orders (copy to ~/.hermes/SOUL.md)
 │   ├── config.example.yaml    # ~/.hermes/config.yaml starting point
+│   ├── .env.example           # ~/.hermes/.env variable names (verified against Hermes docs)
 │   ├── prompts.md             # reusable operator prompts
 │   └── skills/nomad/*/SKILL.md# drop into ~/.hermes/skills/nomad/
 └── stack/

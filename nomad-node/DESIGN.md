@@ -1,6 +1,16 @@
 # NOMAD-X: Integrated Off-Grid Comms & Compute Node
 
-**Status:** Design v0.1 (2026-11-03) — iterate here before buying anything.
+**Status:** Design v0.2 (2026-11-03) — verified against primary sources; ready to order long-lead items (compute, case, radio).
+
+**Decision log**
+| # | Decision | Why |
+|---|---|---|
+| D1 | Compute = **GB10 128 GB** (DGX Spark or OEM twin) | Only portable CUDA box that runs gpt-oss-120b at 64k ctx for Hermes |
+| D2 | Case = **Pelican 1637 Air** (1620 as the heavier alternative) | 284 mm bottom depth, 446 mm rack height (9U), 2.7 kg lighter, wheeled |
+| D3 | Router = **BPI-R4 wired only**; Wi-Fi 7 = **GL.iNet Flint 3 in AP mode, mounted outside the case** | BE14 Wi-Fi 7 card has unresolved stability/EEPROM reports; an external AP beats bulkhead antennas anyway |
+| D4 | Spark power = **inverter + stock 240 W adapter** (v1) | NVIDIA: "use of the provided 240 W power supply is required"; EPR-module route is an optimization to test later |
+| D5 | SMS = **cellular modem + gammu bridge**, not Hermes' SMS platform | Hermes SMS is Twilio-only (cloud) |
+| D6 | WiCi = **reserved bay + open equivalent** | WiCi server is closed; WiCi One is wall-powered and unshipped |
 **Baseline:** Michael Klements' "Project Nomad" (3D-printed case, Beelink SER9, QNAP 2.5/10G switch, GL.iNet travel router, lid monitor, slide-out keyboard). Keep the form factor; add **power, RF, sensing, and a control plane** so one AI agent (Hermes) can run the whole box.
 
 **Design rule (non-negotiable):** every device must expose a control interface (USB-serial, Ethernet, or GPIO), and every control surface is bridged onto one bus (MQTT + Home Assistant). If a part can't be driven by software, it doesn't go in the case.
@@ -43,7 +53,8 @@ Items marked **VERIFY** are things I could not confirm from primary sources; mea
  ANTENNA BULKHEADS (case top wall): HF  VHF/UHF  LoRa  GPS  Wi-Fi x4  Cell x2  Sat
                  ┌───────────────────── 10" RACK (8U) ──────────────────────┐
   1U  RF PATCH   │ SMA/N bulkhead panel → internal pigtails                 │
-  1U  ROUTER     │ Banana Pi BPI-R4 (OpenWrt) + Wi-Fi 7 BE14 NIC + 5G modem │
+  1U  ROUTER     │ Banana Pi BPI-R4 (OpenWrt, wired) + 5G modem             │
+  EXTERNAL       │ GL.iNet Flint 3 Wi-Fi 7 AP (lid-top / mast, 2.5GbE+12 V) │
   1U  SWITCH     │ MikroTik CRS310-8G+2S+ (8×2.5G, 2×SFP+)                  │
   2U  COMPUTE    │ NVIDIA DGX Spark (128GB, CUDA)  — or MS-01 + RTX 4000 SFF│
   2U  RADIO      │ Icom IC-705 (HF–UHF, USB/LAN CAT)                        │
@@ -67,12 +78,12 @@ Items marked **VERIFY** are things I could not confirm from primary sources; mea
 
 | Item | Choice | Notes |
 |---|---|---|
-| Case | **Pelican 1620** (wheeled) | Interior ≈ 545 × 417 × 318 mm (**VERIFY** against Pelican's current spec sheet). Stood on its long edge with the hinge at top, the lid swings up exactly like the Klements build and holds the screen. The 1620's extra depth over the 1610 (≈318 vs 270 mm) is what makes a 200 mm-deep rack + rear cabling fit. Alternative: **Pelican 1637 Air** (bigger interior, ~40% lighter, less rigid — **VERIFY** rack-mount stiffness). |
-| Rack | 10" rack rails (DeskPi RackMate rail pairs or 10" aluminum rack strip) on a 3D-printed/aluminum sub-frame bolted to the case floor | Don't use a full DeskPi T0/T1 cabinet — its outer shell wastes depth. Rails only. 10" rack inner width ≈ 222 mm; equipment ≤ 200 mm deep incl. connectors. |
+| Case | **Pelican 1637 Air** (wheeled) | Interior **595 × 446 × 337 mm**; **lid depth 51 mm, bottom depth 284 mm**; 6.9 kg empty (Pelican spec). Stood on its long edge with the hinge at top, the lid swings up like the Klements build and holds the screen (a 15.6" portable monitor is ~10 mm + bracket, fits the 51 mm lid). The 284 mm bottom depth gives a 200 mm rack bay plus 80 mm for cable bend and airflow. Alternative: **Pelican 1620** — 546 × 417 × 319 mm, lid 51 / bottom 268 mm, 9.6 kg; Protector-grade stiffness, 8U instead of 9U, 2.7 kg heavier. Both work; the Air is the pick because the loaded build is ~30 kg. |
+| Rack | 10" rack rails (DeskPi RackMate rail pairs or 10" aluminum rack strip) on a 2020-extrusion sub-frame bolted through the case floor with a load-spreading plate | Don't use a full DeskPi T0/T1 cabinet — its outer shell wastes depth. Rails only. 10" rack inner width ≈ 222 mm; equipment ≤ 200 mm deep incl. connectors. Layout when standing: rack 280 w × 446 h × 200 d on the left; **battery bay** 315 w × 446 h × 284 d on the right (battery 260 × 133 × 228 mm stands upright with MPPT, shunt, inverter and fuse block above it); keyboard tray in the bottom 25 mm across the full width. |
 | Rack frame material | 2020 aluminum extrusion + printed corner brackets | Extrusion also carries the fan mounts and keyboard tray slides. |
 | Lid screen | 15.6" 1080p **touch** OLED portable monitor, single USB-C (DP Alt + power) | e.g. ASUS ZenScreen OLED touch / Innocn 15A1F class. Mount with VESA plate on printed lid bracket. |
 | Keyboard | Slide-out tray on drawer slides; low-profile keyboard + trackpad (Logitech K400 Plus or a 60% + separate trackpad) | USB-wired, not BT, so it works before the OS is up. |
-| Cooling | 2× 120 mm PWM fans (intake low, exhaust high) through printed shrouds in the case walls; vent openings get removable IP-rated plugs for transport | Fans driven by an ESP32 (ESPHome) → HA controls PWM from case temperature. Operate with lid open; HA shuts compute down if the lid-closed sensor trips while hot. |
+| Cooling | 2× 120 mm PWM fans (intake low, exhaust high) through printed shrouds in the case walls; vent openings get removable IP-rated plugs for transport | Fans driven by an ESP32 (ESPHome) → HA controls PWM from the **compute inlet** temperature sensor. **NVIDIA's documented ideal operating range for the Spark is 5–30 °C**, so the design target is inlet ≤ 30 °C, alarm at 35 °C, forced eco at 40 °C. Operate with lid open; HA shuts compute down if the lid-closed sensor trips while hot. In hot climates plan a shade/awning for the case — the Spark is the thermal weak point of the build. |
 | Lid sensor | Reed switch on ESP32 | |
 
 ### 3.2 Compute — the brain (choose one path)
@@ -81,14 +92,14 @@ The compute choice is driven by three constraints: Hermes needs a model with **�
 
 | | **Path A: NVIDIA DGX Spark** (recommended) | **Path B: Minisforum MS-01 + RTX 4000 SFF Ada 20GB** (budget/x86) | Path C: Strix Halo 128GB mini PC (GMKtec EVO-X2 / Framework Desktop board) |
 |---|---|---|---|
-| Size | 150 × 150 × 50.5 mm, 1.2 kg — fits 2U with room | 196 × 189 × 48 mm — 2U, **tight on depth** (ports at rear; mount I/O-forward like Klements) | ~200 mm deep — **VERIFY** fit per model; Framework board is Mini-ITX 170×170 on a shelf |
+| Size | 150 × 150 × 50.5 mm, 1.2 kg (NVIDIA spec; ASUS GX10 is 150 × 150 × 51 mm, 1.48 kg) — fits 2U with room | 196 × 189 × 48 mm — 2U (ports at rear; mount I/O-forward like Klements) | ~200 mm deep — **VERIFY** fit per model; Framework board is Mini-ITX 170×170 on a shelf |
 | Memory for models | 128 GB unified, 273 GB/s | 20 GB VRAM + 96 GB system RAM | 128 GB unified (up to 96 GB to GPU), 256 GB/s |
 | CUDA | Yes (ARM64) | Yes (x86) | **No** (ROCm/Vulkan) |
 | Models that fit for Hermes | gpt-oss-120b, Qwen3-235B-A22B (Q4), Hermes-4-70B, all at 64k+ ctx | gpt-oss-20b (~13 GB, excellent tool calling), Qwen3-14B/30B-A3B Q4 at 64k ctx | same class as Spark |
-| Power | USB-C PD 240 W input; ~100–170 W under load (**VERIFY** measured) | 19 V barrel; ~120–180 W with GPU | 20 V barrel; ~120–140 W |
-| DC integration | Needs 12 V → 240 W USB-C EPR supply (rare; see §3.6) | Trivial: 12 V → 19 V DC-DC | Trivial: 12 V → 20 V DC-DC |
-| Network | 10GbE RJ45 + Wi-Fi 7 + ConnectX-7 | 2× SFP+ 10G + 2× 2.5G | 5GbE (Framework) / 2.5G |
-| Storage | 4 TB NVMe built in | 3× M.2 2280 (2× 4 TB) | 2× M.2 |
+| Power | 240 W external adapter over USB-C PD 3.1 EPR (48 V profile); GB10 TDP 140 W + 100 W for the rest; ~181 W measured under sustained load | 19 V barrel; ~120–180 W with GPU | 20 V barrel; ~120–140 W |
+| DC integration | Inverter + stock adapter (see §3.6) | Trivial: 12 V → 19 V DC-DC | Trivial: 12 V → 20 V DC-DC |
+| Network | 10GbE RJ45 + 2× QSFP ConnectX-7 + Wi-Fi 7 / BT 5.4; 4× USB-C (one is the PD input), HDMI 2.1a | 2× SFP+ 10G + 2× 2.5G | 5GbE (Framework) / 2.5G |
+| Storage | 1 TB or 4 TB NVMe (buy 4 TB; replaceability not documented) | 3× M.2 2280 (2× 4 TB) | 2× M.2 |
 | Cost | ~$3,000–4,000 | ~$2,000 (MS-01 + card) | ~$2,000 |
 | GPU fit notes | None needed | RTX 4000 SFF Ada is dual-slot low-profile, 70 W, no aux power; MS-01 fits it (community-confirmed, "most powerful GPU you can fit in MS-01"). Minisforum **MS-A2** is single-slot only — needs a cooler mod; avoid. | n/a |
 
@@ -97,15 +108,16 @@ The compute choice is driven by three constraints: Hermes needs a model with **�
 **Sourcing a GB10 (read before buying):**
 - **Must be the 128 GB model.** NVIDIA launched a **64 GB / 1 TB** DGX Spark at $4,999 on 2026-10-23; it cannot hold gpt-oss-120b (~65 GB) plus 64k context. Do not buy it for this build.
 - **Pricing is volatile.** 128 GB Founders Edition: $3,999 at launch (2025-10) → $4,699 (2026-02) → reportedly ~$6,950 (2026-10) during the memory shortage; third-party listings $8k+. Budget $4,700–7,000 and **VERIFY** the price the day you order.
-- **OEM twins are the same machine.** The GB10 superchip, 128 GB LPDDR5x, ~150 × 150 × 50 mm chassis, USB-C PD power, and NVIDIA AI software stack ship as: **ASUS Ascent GX10**, **Dell Pro Max with GB10**, **HP ZGX Nano**, **Lenovo ThinkStation PGX**, **MSI EdgeXpert MS-C931**, **Gigabyte AI TOP Atom**, **Acer Veriton GN100**. Buy whichever is in stock; differences are cosmetic plus storage size (1 TB on some — add an external NVMe enclosure over USB4 or use the switch-attached NAS path if so). **VERIFY** the exact dimensions and that the unit you pick ships with 128 GB and the ConnectX-7 / 10GbE port set you need.
+- **OEM twins are the same machine.** The GB10 superchip, 128 GB LPDDR5x, ~150 × 150 × 51 mm chassis, USB-C PD power, and DGX OS ship as: **ASUS Ascent GX10** (verified: 128 GB SKU, 4 TB PCIe 5.0 SSD option, 3× USB-C 20 Gbps DP-alt + 1× USB-C EPR PD 3.1 in, 10G LAN, ConnectX-7, Wi-Fi 7 2×2, 240 W adapter, runs DGX OS), **Dell Pro Max with GB10**, **HP ZGX Nano**, **Lenovo ThinkStation PGX**, **MSI EdgeXpert MS-C931**, **Gigabyte AI TOP Atom**, **Acer Veriton GN100**. Buy whichever is in stock with **128 GB + 4 TB**; 1 TB SKUs need an external USB4 NVMe enclosure for the knowledge pack.
 - Order it first; it's the long-lead item. Everything else in the BOM is in stock.
 
 ### 3.3 Network
 
 | Item | Choice | Why |
 |---|---|---|
-| Router | **Banana Pi BPI-R4** + **BE14 Wi-Fi 7 NIC**, running **OpenWrt** | 2× SFP+ 10G, 4× 1GbE, 1× 2.5G, **2× mPCIe for cellular modems**, Wi-Fi 7 antenna pigtails → RP-SMA bulkheads (external antennas; Wi-Fi inside a Pelican is useless). Fully scriptable (UCI, ubus, SSH). **VERIFY** BE14 OpenWrt stability on current release. Plug-and-play fallback: **GL.iNet Flint 3** (OpenWrt-based, but check whether antennas are detachable — **VERIFY**). |
-| Switch | **MikroTik CRS310-8G+2S+IN** | 8× 2.5G RJ45 + 2× SFP+, RouterOS API, 12–57 V DC input, ~207 mm wide (**VERIFY** it fits 222 mm rack opening; else CRS305-1G-4S+). |
+| Router (wired core) | **Banana Pi BPI-R4** running **OpenWrt**, **no Wi-Fi card** | 2× SFP+ 10G, 4× 1GbE, 1× 2.5G, **2× mPCIe for cellular modems**, 12 V DC. Fully scriptable (UCI, ubus, SSH). Handles VLANs, mwan3 failover, DHCP/DNS, firewall. The BE14 Wi-Fi 7 NIC is deliberately left out: OpenWrt's device page documents modules shipped with zeroed tx-power EEPROM fields, and users report drops; the mt7996 driver is mainline but not yet boring. |
+| Wi-Fi 7 AP | **GL.iNet Flint 3 (GL-BE9300)** in **AP mode**, mounted **outside the case** (lid-top bracket, or on the mast in a vented box) | Tri-band BE9300, 4× 2.5G LAN + 2.5G WAN, GL's OpenWrt-based firmware with SSH/UCI so Hermes can script SSIDs. Its antennas are foldable, **not detachable** (no SMA), which is why it lives outside: one 2.5 GbE cable + 12 V DC through a bulkhead. An AP in free air beats any bulkhead-antenna arrangement for coverage. ~$120–140. |
+| Switch | **MikroTik CRS310-8G+2S+IN** | 8× 2.5G RJ45 + 2× SFP+, RouterOS API. **200 × 206 × 44 mm** — fits the 222 mm opening. **DC input is 18–57 V** (ships with 24 V/1.5 A), so it needs a 12 → 24 V DC-DC; max 34 W (21 W without SFP modules). |
 | Cellular | Quectel RM520N-GL (5G, M.2) in the BPI-R4 mPCIe/M.2 slot via adapter, dual SIM | OpenWrt mwan3 handles WAN failover: Starlink → cellular. SMS via `mmcli`/gammu → HA/Hermes SMS channel. |
 | Satellite internet | **Starlink Mini** (external, stowed in lid pocket) | 12–48 V DC input; Ethernet → router WAN. gRPC status API → HA. |
 | Satellite messaging | **RockBLOCK 9603** (Iridium SBD) | Serial; open API; works anywhere; pay-per-message. Garmin inReach/Zoleo have **no local API** and were excluded. |
@@ -117,7 +129,7 @@ VLANs (OpenWrt): `10 mgmt`, `20 lan` (users), `30 iot` (ESP32s, relays), `40 rf`
 
 | Function | Hardware | Host interface | Software |
 |---|---|---|---|
-| HF/VHF/UHF ham | **Icom IC-705** (200 × 84 × 82 mm, 10 W, 13.8 V) | USB (CI-V + audio) and/or Wi-Fi LAN | Hamlib `rigctld`, Direwolf (APRS/packet), JS8Call, FLdigi, WSJT-X, Pat (Winlink), VARA HF (Wine) |
+| HF/VHF/UHF ham | **Icom IC-705** (200 × 84 × 82 mm, 10 W at 13.8 V DC ±15% = 11.7–15.9 V) | USB (CI-V + audio) and/or Wi-Fi LAN | Hamlib `rigctld` (find the model id with `rigctl -l \| grep -i 705`), Direwolf (APRS/packet), JS8Call, FLdigi, WSJT-X, Pat (Winlink), VARA HF (Wine) |
 | GMRS/FRS | Quansheng UV-K5 (×2) with programming cable; or Midland MXT275 mobile | USB serial (CHIRP), USB sound card for audio | CHIRP, audio piped to Whisper |
 | LoRa mesh (people) | 2× Heltec V3 / RAK WisBlock running **Meshtastic** (one inside the case, one as a roaming node) | USB serial | `meshtastic` Python API → MQTT; `meshtastic_bridge.py` → Hermes |
 | LoRa mesh (data) | **RNode** (LilyGo T-Beam flashed with RNode firmware) running **Reticulum** | USB serial | `rnsd`, LXMF, NomadNet — encrypted, routable mesh that can bridge LoRa↔Wi-Fi↔Ethernet. Reticulum needs a host per node; this box is that host. |
@@ -150,29 +162,31 @@ With this, the agent can run an automated **comms check**: key the radio, send a
 | Load | Idle | Working | Peak |
 |---|---|---|---|
 | Compute (Spark) | 25 | 120 | 170 |
-| Router + Wi-Fi 7 + modem | 12 | 18 | 25 |
-| Switch | 8 | 10 | 12 |
+| Router (BPI-R4) + modem | 8 | 12 | 18 |
+| Wi-Fi 7 AP (Flint 3, external) | 8 | 12 | 18 |
+| Switch (CRS310, 2 SFP+ populated) | 15 | 21 | 34 |
 | IC-705 | 3 (RX) | 3 | 30 (10 W TX) |
 | RF bay (SDRs, LoRa, GPS, hub) | 6 | 10 | 15 |
 | Screen | 0 (off) | 12 | 18 |
 | Fans, ESP32, relays | 2 | 6 | 10 |
 | Starlink Mini (external, optional) | 0 | 30 | 40 |
-| **Total** | **~56** | **~210** | **~320** |
+| Inverter idle (v1 Spark feed) | 6 | 6 | 8 |
+| **Total** | **~75** | **~225** | **~345** |
 
-**Battery:** 12.8 V LiFePO4 **100 Ah (1,280 Wh)**, e.g. LiTime/Eco-Worthy 100Ah "mini" (≈ 260 × 170 × 190 mm, ~10 kg — **VERIFY** fit in base). ≈ 6 h at full AI load, ≈ 20 h idle/monitoring. If weight matters, 2× 50 Ah in parallel so one can be left behind.
+**Battery:** 12.8 V LiFePO4 **100 Ah (1,280 Wh)** — **LiTime 12V 100Ah Mini**: 260 × 133 × 228 mm, 8.6 kg, 100 A BMS, IP65, M8 posts (manufacturer spec). ≈ 5.5 h at full AI load, ≈ 17 h idle/monitoring. Fits upright in the battery bay beside the rack. If weight matters, 2× 50 Ah in parallel so one can be left behind.
 
 **Solar:** 200 W foldable panel (2× 100 W, MC4) → Victron SmartSolar 100/30. Expect 600–900 Wh/day in good sun. Case accepts panel input via a weatherproof MC4/SAE bulkhead; also an Anderson PB50 bulkhead for vehicle 12 V / external battery / bench PSU.
 
 **DC distribution (no inverter):**
 - 12 V bus → Blue Sea fuse block → rails.
 - **Compute power (GB10/Spark).** The Spark is powered *only* over USB-C and negotiates **PD 3.1 EPR at the 48 V profile** (measured ~181 W at 47 V/3.85 A under sustained load; system peak 240 W = ~140 W SoC + ~100 W for ConnectX-7, SSD, and USB-C device budget). There is no 12 V barrel input. Two ways to feed it from the 12 V bus:
-  - **v1 (do this first):** a **300 W pure-sine inverter** (e.g. Victron Phoenix 12/375 or Renogy 300 W) on its own relay, feeding the **stock NVIDIA 240 W adapter**. ~10% loss, zero compatibility risk, and the inverter doubles as a shore-style AC outlet for anything else. Idle inverter draw ~5–8 W — switch it off in `eco`.
-  - **v2 (optimization):** 12 V → 48 V 300 W boost converter feeding a **USB-C PD 3.1 EPR source module** (48 V/5 A, must advertise AVS). **VERIFY** the module actually negotiates EPR with the Spark before committing — many "240 W" boards are sink-side or cap at 140 W. Saves ~15–20 W over v1.
+  - **v1 (decided):** a **300 W pure-sine inverter** (e.g. Victron Phoenix 12/375 or Renogy 300 W) on its own relay, feeding the **stock NVIDIA 240 W adapter**. NVIDIA's hardware guide states "use of the provided 240 W power supply is required… a different or lower-rated power supply may result in reduced performance, failure to boot, or unexpected shutdowns," so this is the only route that's within spec. ~10% loss; the inverter doubles as a shore-style AC outlet. Idle inverter draw ~5–8 W — HA switches it off in `eco`.
+  - **v2 (experiment, later):** 12 V → 48 V 300 W boost converter feeding a **USB-C PD 3.1 EPR source module** (48 V/5 A, AVS). **VERIFY** on the bench that the module negotiates EPR with the Spark and survives a sustained 181 W pull before trusting it in the field. Saves ~15–20 W over v1.
   - Either way, a **USB-C PD meter** inline (EPR-rated) feeds the `compute` rail reading to HA.
 - 12 V → **19 V 10 A** DC-DC only if the Path B mini PC is used instead.
-- 12 V → 13.8 V regulated for IC-705 (it wants 13.8 V; don't feed it raw battery on a full charge of 14.4 V — **VERIFY** IC-705 input tolerance; spec says 13.8 V ±15%).
+- **IC-705 straight off the bus.** Spec is 13.8 V ±15% (11.7–15.9 V); a LiFePO4 bus sits at 13.2–13.4 V rested and 14.4 V while charging, all in range. Fuse it at 5 A. Optional: a 13.8 V buck-boost so output power doesn't sag when the bus drops below 13 V under heavy load.
 - 12 V → 5 V 10 A rail for USB hub, ESP32s, relays.
-- 12 V → switch and router directly (both accept 12 V).
+- 12 V → **24 V 2 A** DC-DC for the CRS310 switch (18–57 V input). Router and Flint 3 AP take 12 V directly (**VERIFY** Flint 3's adapter rating; GL.iNet units are typically 12 V).
 - Everything switchable via the relay board; everything metered.
 
 **Shore power:** 120/230 V → 12 V 30 A PSU (Mean Well LRS-350-12) on the Anderson input; or a Victron Blue Smart IP22 charger. Agent sees "shore power present" via the MPPT/shunt data.
@@ -249,7 +263,7 @@ OS: **DGX OS** (Ubuntu 24.04-based) on the Spark, or **Ubuntu 24.04 Server** on 
 
 Download from `https://download.kiwix.org/zim/` (redirects to `lb.download.kiwix.org`). Also fetch the US Army FM 21-76 / TC 4-02.1 PDFs and your local emergency plans into `/data/library/` for RAG.
 
-**Maps:** Protomaps planet `.pmtiles` (~120 G, **VERIFY** current size) or regional extracts (North America ~25 G). Add USGS topo tiles for your region. Serve to Organic Maps / Gaia-compatible clients and the HA map card.
+**Maps:** Protomaps planet `.pmtiles` (~120 G, zoom 0–15, per Protomaps docs) or regional extracts (North America ~25 G). Add USGS topo tiles for your region. Serve to Organic Maps / Gaia-compatible clients and the HA map card.
 
 **Storage plan (4 TB NVMe):** models 200 G · knowledge 300 G · maps 150 G · media 1 T · user data/backups 1 T · headroom.
 
@@ -301,19 +315,22 @@ Secrets go in `~/.hermes/.env` (`HA_TOKEN=...`), never in `config.yaml`.
 
 ### 5.3 Channels (feasible without internet)
 
-| Channel | Transport | Hermes side | Notes |
-|---|---|---|---|
-| **Matrix** (primary) | Wi-Fi/LAN | Built-in Matrix platform → self-hosted **Conduit** homeserver; `MATRIX_ALLOWED_USERS=@hayden:nomad.lan` | Element on phones/laptops; E2EE; group rooms; works 100% offline. |
-| **Home Assistant** | LAN | Built-in HA plugin platform | Talk to Hermes from HA's Assist UI and the lid screen. |
-| **API Server / Webhooks** | LAN | Built-in | Used by the bridges below. |
-| **Meshtastic** | LoRa | `stack/bridges/meshtastic_bridge.py` → Hermes API server | DM the case's node name; replies ≤ 200 chars/packet. |
-| **SMS** | Cellular | gammu-smsd → Node-RED → Hermes API → gammu reply; or Hermes SMS platform if the modem is supported (**VERIFY**) | Works with only a cell tower, no data plan. |
-| **Email over radio** | HF/VHF via Winlink (Pat) → local Postfix/Dovecot | Hermes built-in Email platform (IMAP/SMTP to localhost) | Slow (minutes), but global with no infrastructure. |
-| **Reticulum/LXMF** | LoRa/any | LXMF bot → Hermes API | Encrypted messaging to the agent over Reticulum. |
-| **Telegram / Signal / Discord** | Internet (Starlink/cell) | Built-in | Enabled automatically when WAN is up; `*_ALLOWED_USERS` set. |
-| **Voice over radio** (stretch) | GMRS/VHF | Whisper → Hermes → Piper → PTT via relay | Push-to-talk assistant on a simplex channel. Keep within license rules (no encryption on ham bands; ID every 10 min). |
+Verified against the Hermes messaging docs (2026-11-03). Install-time internet is needed for the Matrix extra (`python -c "import pm; pm.sync_venv(['matrix'], explicit=True)"` + `apt install libolm-dev`) and the HA plugin (`hermes plugins install homeassistant`) — do both at home.
 
-Pairing: unknown users get a one-time code; approve with `hermes pairing approve matrix <CODE>`. Default-deny stays on.
+| Channel | Transport | Hermes side (exact config) | Offline? |
+|---|---|---|---|
+| **Matrix** (primary) | Wi-Fi/LAN | Built-in platform → self-hosted **Conduit**. `.env`: `MATRIX_HOMESERVER=http://127.0.0.1:6167`, `MATRIX_ACCESS_TOKEN=…` (or `MATRIX_USER_ID` + `MATRIX_PASSWORD`), `MATRIX_ALLOWED_USERS=@hayden:nomad.lan`, `MATRIX_HOME_ROOM=!…`, `MATRIX_E2EE_MODE=optional`. `config.yaml` `matrix:` block: `require_mention`, `allowed_rooms`, `auto_thread`. | Yes — homeserver is local. |
+| **Home Assistant** | LAN | Official plugin. `.env`: `HASS_TOKEN=<long-lived token>`, `HASS_URL=http://127.0.0.1:8123`, `HASS_HOME_CHANNEL=notify.nomad_screen`. `config.yaml`: `platforms.homeassistant.extra.watch_entities: [binary_sensor.nomad_lid_closed, sensor.nomad_battery_soc, …]`, `cooldown_seconds: 30`. HA events are always authorized (no pairing). Replies land as HA persistent notifications → shown on the lid dashboard. | Yes. |
+| **API Server** | LAN | `.env`: `API_SERVER_ENABLED=true`, `API_SERVER_PORT=8642`, `API_SERVER_HOST=127.0.0.1`, `API_SERVER_KEY=…`. OpenAI-compatible: `POST /v1/chat/completions`, `GET /v1/models`, `GET /health`. This is what the bridges below call. | Yes. |
+| **Webhooks** | LAN | `.env`: `WEBHOOK_ENABLED=true`, `WEBHOOK_PORT=8644`, `WEBHOOK_SECRET=…`. `config.yaml` `platforms.webhook.extra.routes.<name>`: `secret`, `prompt`, `deliver: matrix`, `skills: [comms-check]`. HMAC-SHA256 over `<timestamp>.<body>` in `X-Webhook-Signature-V2`. **HA automations POST here** to make Hermes act on alerts (e.g. `nomad/alerts` → `/webhooks/alert`). | Yes. |
+| **Meshtastic** | LoRa | `stack/bridges/meshtastic_bridge.py` → API Server (`:8642/v1/chat/completions`, bearer `API_SERVER_KEY`). DM the case's node; replies ≤ 200 chars/packet. | Yes. |
+| **SMS** | Cellular | **Hermes' SMS platform is Twilio-only — not usable here.** Path: modem → `gammu-smsd` → Node-RED → API Server → `gammu sendsms` reply. Allowlist by sender number in the Node-RED flow. | Yes (needs a cell tower, no data plan). |
+| **Email over radio** | HF/VHF via Winlink (Pat) → local Postfix/Dovecot | Built-in Email platform. `.env`: `EMAIL_ADDRESS=nomad@nomad.lan`, `EMAIL_PASSWORD`, `EMAIL_IMAP_HOST=127.0.0.1`, `EMAIL_SMTP_HOST=127.0.0.1`, `EMAIL_IMAP_PORT=143`, `EMAIL_SMTP_PORT=25`, `EMAIL_ALLOWED_USERS=<your winlink address>`, `EMAIL_POLL_INTERVAL=60`. `config.yaml`: `platforms.email.extra.{imap_security: starttls, imap_tls_verify: false, smtp_security: starttls, smtp_tls_verify: false}` and **`platforms.email.require_authenticated_sender: false`** (local MTA doesn't stamp `Authentication-Results`; accept the spoofing risk, mitigated by the allowlist). | Yes; slow (minutes) but global. |
+| **Reticulum/LXMF** | LoRa/any | Small LXMF bot → API Server. | Yes. |
+| **Telegram** | Internet (Starlink/cell) | `.env`: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS=<numeric ids>`, `TELEGRAM_HOME_CHANNEL`. Long-polling (no inbound port needed). | No — on when WAN is up. |
+| **Voice over radio** (stretch) | GMRS/VHF | Whisper → API Server → Piper → PTT via relay. | Yes. License rules apply (no encryption on ham bands; ID every 10 min). |
+
+Pairing: unknown users get a one-time code; approve with `hermes pairing approve matrix <CODE>`. `GATEWAY_ALLOW_ALL_USERS` stays unset (default-deny).
 
 ### 5.4 Tools exposed to Hermes (`nomad-mcp`)
 
@@ -375,12 +392,12 @@ IC-705 + DigiRig; rigctld, Direwolf, Pat, JS8Call. GMRS radios + sound card. Whi
 **Checkpoint 3:** `radio.send_aprs("NOMAD test")` is heard on aprs.fi (when online) and on the local SDR; `winlink_send` to your own email arrives via a gateway; `sdr.monitor_start(146.52, "fm", 5)` returns a transcript of a test call you make from a handheld; `comms.check_all()` passes.
 
 ### Phase 4 — WAN and channels
-Cellular modem, Starlink Mini, mwan3 failover, gammu SMS, Conduit/Element, Hermes gateway with Matrix/HA/SMS/Email/Telegram platforms and pairing.
+Cellular modem, Starlink Mini, mwan3 failover, gammu SMS bridge, Conduit/Element, Flint 3 AP in its external mount, Hermes gateway with Matrix/HA/Email/Telegram platforms, API server, webhooks, and pairing.
 **Checkpoint 4:** Pull the Starlink cable → traffic fails to cellular within 30 s and Hermes posts "WAN failover: cellular" to Matrix; text the case's SIM from your phone and get a reply from Hermes; with WAN down, Matrix still works.
 
 ### Phase 5 — Case integration
-Pelican 1620, rack frame, bulkheads, lid screen, keyboard tray, fans, cable dressing, battery mounting, transport plugs. Full knowledge pack and maps.
-**Checkpoint 5:** 2-hour full-load soak with lid open: case temp < 45 °C at the compute inlet; close the lid while hot → HA automation shuts compute down within 60 s; drop test of the closed case (your call on height) → everything boots.
+Pelican 1637 Air, rack frame, bulkheads, lid screen, keyboard tray, fans, cable dressing, battery mounting, transport plugs. Full knowledge pack and maps.
+**Checkpoint 5:** 2-hour full-load soak with lid open at ≥ 25 °C ambient: compute inlet ≤ 35 °C and no GPU clock throttling in `nvidia-smi`; close the lid while hot → HA automation shuts compute down within 60 s; drop test of the closed case (your call on height) → everything boots.
 
 ### Phase 6 — Field test and WiCi bay
 48-hour off-grid run on solar. Phone/tablet apps pointed at `http://ai.nomad.lan:11434` (Ollama) and `/v1`. When WiCi One ships: mount in the reserved bay, add to `lan`, register `http://wici-one.local/v1` as a second Hermes provider.
@@ -392,10 +409,10 @@ Pelican 1620, rack frame, bulkheads, lid screen, keyboard tray, fans, cable dres
 
 | Group | Items | Est. |
 |---|---|---|
-| Enclosure | Pelican 1620, rack rails, 2020 extrusion, prints, drawer slides, fans, bulkheads, Anderson/MC4 inlets | 600 |
+| Enclosure | Pelican 1637 Air, rack rails, 2020 extrusion, prints, drawer slides, fans, bulkheads, Anderson/MC4 inlets | 600 |
 | Compute | GB10 128 GB box (DGX Spark or OEM twin; Path A) **or** MS-01 + RTX 4000 SFF Ada + 2× 4 TB NVMe (Path B fallback) | 4,700–7,000 / 2,300 |
 | Display/input | 15.6" touch OLED, keyboard/trackpad | 350 |
-| Network | BPI-R4 + BE14 + antennas, CRS310 switch, RM520N modem + adapter, cables/DACs | 650 |
+| Network | BPI-R4, Flint 3 AP + external mount, CRS310 switch + 24 V DC-DC, RM520N modem + adapter, cables/DACs | 700 |
 | Radio | IC-705, DigiRig, antennas + mast, 2× UV-K5, 2× RTL-SDR v4, Airspy R2, 2× Heltec V3, T-Beam (RNode), ZED-F9P GPS, RockBLOCK + Iridium plan, Flipper Zero, HackRF (opt.) | 2,400 |
 | Power | 100 Ah LiFePO4, Victron MPPT 100/30 + SmartShunt, 200 W panel, 300 W pure-sine inverter (Spark), DC-DCs, fuse block, relay board, Mean Well shore PSU, EPR PD meter | 1,300 |
 | Sensing/misc | ESP32-S3, BME280, INA226s, powered USB hub, industrial cabling | 200 |
@@ -407,12 +424,16 @@ Pelican 1620, rack frame, bulkheads, lid screen, keyboard tray, fans, cable dres
 
 ## 9. Open questions (resolve before ordering)
 
-1. ~~Compute path~~ — **Decided: GB10 128 GB (Spark or OEM twin).** Remaining: which OEM box is actually obtainable at a sane price, and whether it ships with 4 TB or 1 TB (changes the storage plan in §4.3).
-2. **Pelican 1620 vs 1637 Air** — measure rack depth with the screen in the lid. Need ≥ 200 mm bay depth + 30 mm cable bend.
-3. **BPI-R4 + BE14 OpenWrt maturity** vs Flint 3 convenience (and whether Flint 3 antennas detach).
-4. **WiCi One** physical size/power — ask the vendor; adjust the reserved bay.
-5. **Hermes SMS/HA/Email platform specifics** — confirm env var names per platform in the Hermes messaging docs during Phase 4.
-6. Battery weight budget — is ~30 kg total acceptable for your use (wheels help), or go 50 Ah?
+Resolved in v0.2: compute (D1), case (D2), router/AP (D3), Spark power (D4), SMS path (D5), Hermes channel config (§5.3), switch fit and voltage, IC-705 supply, battery fit, map size.
+
+Still open:
+1. **Which GB10 box is obtainable** at a sane price with 128 GB + 4 TB — check OEM twins before the NVIDIA store.
+2. **WiCi One** physical size/power — ask the vendor; adjust the reserved 3U bay.
+3. **Flint 3 DC input** rating (expected 12 V) and whether its GL firmware AP mode exposes everything Hermes needs over UCI — else fall back to stock OpenWrt on it.
+4. **Hamlib model id** for the IC-705 — `rigctl -l | grep -i 705` on the node.
+5. **Kismet container image** name — or install natively in the Kali VM.
+6. Battery weight budget — ~30 kg loaded; wheels help, or go 2× 50 Ah.
+7. **v2 EPR power module** for the Spark — bench-test only after v1 is in service.
 
 ---
 
@@ -424,5 +445,10 @@ Pelican 1620, rack frame, bulkheads, lid screen, keyboard tray, fans, cable dres
 - Minisforum MS-01/MS-A2 GPU fit: williamlam.com (RTX 4000 Ada in MS-A2 with cooler mod), techenclave MS-01 threads, Notebookcheck MS-A2 review
 - DGX Spark vs Strix Halo: The Register (2025-12), Liliputing, Notebookcheck
 - DGX Spark pricing/64 GB variant: The Register (2026-10-02), ServeTheHome, Notebookcheck; power: NVIDIA developer forum "DGX Spark Power Clarification", ChargerLAB adapter teardown/compatibility tests
+- DGX Spark hardware: docs.nvidia.com/dgx/dgx-spark/hardware.html (2026-10-21); ASUS Ascent GX10 techspec page
+- Pelican 1620 / 1637 Air: pelican.com product pages and 1637 Air datasheet (via retailers; pelican.com blocks automated fetches)
+- BPI-R4 / BE14: openwrt.org/toh/sinovoip/bananapi_bpi-r4; Banana Pi forum; Flint 3: gl-inet.com datasheet, TechRadar/CNX reviews
+- CRS310-8G+2S+IN: MikroTik spec via resellers; IC-705: Icom brochure (13.8 V ±15%); LiTime 100Ah Mini spec sheet; Protomaps docs (planet ~120 GB)
+- Hermes messaging: hermes-agent.nousresearch.com/docs/user-guide/messaging/{matrix,homeassistant,email,sms,open-webui,webhooks,telegram}
 - DeskPi RackMate dimensions: DeskPi/52Pi listings
 - Meshtastic↔HA: meshtastic2hass (PyPI), homeassistant-meshtastic
