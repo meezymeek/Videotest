@@ -5,6 +5,7 @@ Design and configuration for **NOMAD-X**, an integrated off-grid comms + compute
 ```
 nomad-node/
 ├── DESIGN.md                  # the design doc — start here; feed it to an AI to be guided step by step
+├── OPERATORS-GUIDE.md         # plain-language "you just found this case" guide: what it is, scenarios, hardware list
 ├── hermes/
 │   ├── SOUL.md                # Hermes persona + standing orders (copy to ~/.hermes/SOUL.md)
 │   ├── config.example.yaml    # ~/.hermes/config.yaml starting point
