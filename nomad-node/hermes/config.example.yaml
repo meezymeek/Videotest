@@ -1,0 +1,69 @@
+# ~/.hermes/config.yaml — NOMAD-X starting point.
+# Secrets (tokens, passwords) go in ~/.hermes/.env, referenced here as ${VAR}.
+# Verify key names against the current Hermes docs: hermes config check
+
+model:
+  provider: custom
+  base_url: http://127.0.0.1:8080/v1      # llama-server (--jinja -c 65536) or vLLM :8000
+  default: gpt-oss-120b                    # Path B: gpt-oss-20b
+  context_length: 65536
+  streaming: true                          # set false if streaming tool calls break on your server
+
+providers:
+  local:
+    base_url: http://127.0.0.1:8080/v1
+    request_timeout_seconds: 600
+    stale_timeout_seconds: 0
+  wici:                                    # only after a WiCi One is in the bay
+    base_url: http://wici-one.local/v1
+    key_env: WICI_API_KEY
+
+terminal:
+  backend: local
+
+delegation:
+  max_parallel: 2
+
+skills:
+  external_dirs:
+    - /opt/nomad/hermes/skills             # this repo's skills, checked out on the node
+  write_approval: true
+
+memory:
+  write_approval: false
+
+mcp_servers:
+  homeassistant:
+    url: http://127.0.0.1:8123/mcp_server/sse
+    headers:
+      Authorization: "Bearer ${HA_TOKEN}"
+    timeout: 30
+  nomad:
+    command: /opt/nomad/venv/bin/python
+    args: ["/opt/nomad/stack/nomad-mcp/server.py"]
+    env:
+      MQTT_HOST: "127.0.0.1"
+      RIGCTLD: "127.0.0.1:4532"
+      KIWIX_URL: "http://127.0.0.1:8081"
+      HA_URL: "http://127.0.0.1:8123"
+      HA_TOKEN: "${HA_TOKEN}"
+    timeout: 120
+
+gateway:
+  systemd_watchdog_seconds: 120
+  platforms:
+    matrix:
+      enabled: true                        # homeserver/user/token in .env: MATRIX_HOMESERVER, MATRIX_USER_ID, MATRIX_ACCESS_TOKEN (VERIFY names)
+    homeassistant:
+      enabled: true
+    email:
+      enabled: true                        # IMAP/SMTP to the local mail server (Winlink in/out)
+    sms:
+      enabled: false                       # enable once the modem path is validated (or use the Node-RED bridge)
+    telegram:
+      enabled: true                        # only works when WAN is up; harmless otherwise
+    discord:
+      enabled: false
+  channel_overrides:
+    meshtastic:                            # used by the bridge via the API server
+      system_prompt_suffix: "Reply in <= 200 characters. No markdown."

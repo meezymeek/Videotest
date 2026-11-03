@@ -1,0 +1,97 @@
+# Home Assistant automations for NOMAD-X — policy lives here so it works even if Hermes is down.
+# Entities assume: Victron integration (sensor.nomad_battery_soc, sensor.nomad_solar_watts, sensor.nomad_load_watts),
+# USB relay switches (switch.nomad_relay_*), ESPHome case node (sensor.nomad_case_temp, binary_sensor.nomad_lid_closed,
+# fan.nomad_case_fans), input_select.nomad_power_mode, and an MQTT notify to Hermes via Node-RED (notify.hermes_matrix).
+
+- alias: "NOMAD: lid closed while hot -> shut down compute"
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.nomad_lid_closed
+      to: "on"
+      for: "00:00:30"
+  condition:
+    - condition: numeric_state
+      entity_id: sensor.nomad_case_temp
+      above: 40
+  action:
+    - service: notify.hermes_matrix
+      data: { message: "Lid closed with case at {{ states('sensor.nomad_case_temp') }} C — shutting compute down in 30 s." }
+    - delay: "00:00:30"
+    - service: shell_command.compute_shutdown   # ssh compute 'sudo systemctl poweroff'
+
+- alias: "NOMAD: fan curve"
+  trigger:
+    - platform: state
+      entity_id: sensor.nomad_case_temp
+  action:
+    - service: fan.set_percentage
+      target: { entity_id: fan.nomad_case_fans }
+      data:
+        percentage: >
+          {% set t = states('sensor.nomad_case_temp') | float(30) %}
+          {{ 20 if t < 30 else (50 if t < 38 else (80 if t < 45 else 100)) }}
+
+- alias: "NOMAD: SoC < 30% -> eco"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.nomad_battery_soc
+      below: 30
+  condition:
+    - condition: state
+      entity_id: input_select.nomad_power_mode
+      state: "normal"
+  action:
+    - service: input_select.select_option
+      target: { entity_id: input_select.nomad_power_mode }
+      data: { option: "eco" }
+    - service: notify.hermes_matrix
+      data: { message: "Battery {{ states('sensor.nomad_battery_soc') }}% — switched to eco." }
+
+- alias: "NOMAD: SoC < 15% -> shed non-essentials"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.nomad_battery_soc
+      below: 15
+  action:
+    - service: switch.turn_off
+      target:
+        entity_id:
+          - switch.nomad_relay_screen
+          - switch.nomad_relay_sdr_hub
+          - switch.nomad_relay_starlink
+    - service: notify.hermes_matrix
+      data: { message: "Battery {{ states('sensor.nomad_battery_soc') }}% — screen, SDR hub and Starlink powered off. Mesh, GPS, router, radio RX remain." }
+
+- alias: "NOMAD: apply power mode"
+  trigger:
+    - platform: state
+      entity_id: input_select.nomad_power_mode
+  action:
+    - choose:
+        - conditions: "{{ trigger.to_state.state == 'eco' }}"
+          sequence:
+            - service: switch.turn_off
+              target: { entity_id: [switch.nomad_relay_screen, switch.nomad_relay_sdr_hub, switch.nomad_relay_starlink] }
+        - conditions: "{{ trigger.to_state.state in ['normal', 'max'] }}"
+          sequence:
+            - service: switch.turn_on
+              target: { entity_id: [switch.nomad_relay_screen, switch.nomad_relay_sdr_hub] }
+
+- alias: "NOMAD: WAN change -> announce"
+  trigger:
+    - platform: mqtt
+      topic: nomad/net/wan          # published by a Node-RED flow polling `ubus call mwan3 status` on the router
+  condition: "{{ trigger.payload_json.changed }}"
+  action:
+    - service: notify.hermes_matrix
+      data: { message: "WAN: {{ trigger.payload_json.old }} -> {{ trigger.payload_json.new }} ({{ trigger.payload_json.reason }})" }
+
+- alias: "NOMAD: mesh/SMS alert keywords -> all channels"
+  trigger:
+    - platform: mqtt
+      topic: nomad/alerts
+  action:
+    - service: notify.hermes_matrix
+      data: { message: "ALERT from {{ trigger.payload_json.source }} ({{ trigger.payload_json.from }}): {{ trigger.payload_json.text }}" }
+    - service: notify.sms
+      data: { message: "NOMAD ALERT {{ trigger.payload_json.source }} {{ trigger.payload_json.from }}: {{ trigger.payload_json.text[:120] }}" }

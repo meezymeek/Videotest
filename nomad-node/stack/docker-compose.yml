@@ -1,0 +1,249 @@
+# NOMAD-X service stack — starting point. Bring services up phase by phase (DESIGN.md §7).
+# Host paths: /data/{models,zim,maps,nomad,ha,...}. Hermes runs natively on the host, not here.
+# Pin image versions before relying on this in the field.
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  mosquitto:
+    <<: *restart
+    image: eclipse-mosquitto:2
+    network_mode: host
+    volumes:
+      - /data/mosquitto/config:/mosquitto/config
+      - /data/mosquitto/data:/mosquitto/data
+
+  homeassistant:
+    <<: *restart
+    image: ghcr.io/home-assistant/home-assistant:stable
+    network_mode: host
+    privileged: true
+    volumes:
+      - /data/ha:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    devices:
+      - /dev/victron-shunt:/dev/victron-shunt
+      - /dev/victron-mppt:/dev/victron-mppt
+      - /dev/usb-relay:/dev/usb-relay
+
+  nodered:
+    <<: *restart
+    image: nodered/node-red:latest
+    network_mode: host
+    volumes:
+      - /data/nodered:/data
+
+  # ---- AI ----------------------------------------------------------------
+  llama-server:
+    <<: *restart
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    network_mode: host
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - /data/models:/models
+    command: >
+      -m /models/gpt-oss-120b-mxfp4.gguf
+      --host 0.0.0.0 --port 8080
+      --jinja -c 65536 --parallel 1 -ngl 999
+      --alias gpt-oss-120b
+
+  ollama:
+    <<: *restart
+    image: ollama/ollama:latest
+    network_mode: host
+    runtime: nvidia
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_CONTEXT_LENGTH=32768
+      - OLLAMA_KEEP_ALIVE=10m
+    volumes:
+      - /data/ollama:/root/.ollama
+
+  whisper:
+    <<: *restart
+    image: fedirz/faster-whisper-server:latest-cuda
+    network_mode: host
+    runtime: nvidia
+    environment:
+      - WHISPER__MODEL=Systran/faster-whisper-large-v3-turbo
+    volumes:
+      - /data/whisper:/root/.cache/huggingface
+
+  piper:
+    <<: *restart
+    image: rhasspy/wyoming-piper:latest
+    network_mode: host
+    command: --voice en_US-lessac-medium
+    volumes:
+      - /data/piper:/data
+
+  # ---- Knowledge & maps --------------------------------------------------
+  kiwix:
+    <<: *restart
+    image: ghcr.io/kiwix/kiwix-serve:latest
+    network_mode: host
+    volumes:
+      - /data/zim:/data:ro
+    command: --port=8081 --address=0.0.0.0 /data/*.zim
+
+  tileserver:
+    <<: *restart
+    image: maptiler/tileserver-gl:latest
+    network_mode: host
+    volumes:
+      - /data/maps:/data:ro
+    command: --port 8082
+
+  # ---- RF ---------------------------------------------------------------
+  openwebrx:
+    <<: *restart
+    image: jketterl/openwebrx-plus:latest
+    network_mode: host
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    volumes:
+      - /data/openwebrx:/var/lib/openwebrx
+    environment:
+      - OPENWEBRX_ADMIN_USER=admin
+      - OPENWEBRX_ADMIN_PASSWORD=${OPENWEBRX_PASSWORD}
+
+  direwolf:
+    <<: *restart
+    build: ./direwolf           # Dockerfile: debian + direwolf; config at /data/direwolf/direwolf.conf
+    network_mode: host
+    devices:
+      - /dev/snd:/dev/snd
+      - /dev/radio-ic705-ptt:/dev/radio-ic705-ptt
+    volumes:
+      - /data/direwolf:/config
+
+  rigctld:
+    <<: *restart
+    build: ./hamlib             # Dockerfile: debian + libhamlib-utils
+    network_mode: host
+    devices:
+      - /dev/radio-ic705:/dev/radio-ic705
+    command: rigctld -m 3085 -r /dev/radio-ic705 -s 115200 -T 0.0.0.0 -t 4532   # 3085 = IC-705 (VERIFY with rigctl -l)
+
+  pat:
+    <<: *restart
+    image: ghcr.io/la5nta/pat:latest
+    network_mode: host
+    volumes:
+      - /data/pat:/root/.config/pat
+    command: http --listen 0.0.0.0:8085
+
+  rnsd:
+    <<: *restart
+    build: ./reticulum          # Dockerfile: python + rns lxmf; config at /data/rns
+    network_mode: host
+    devices:
+      - /dev/rnode:/dev/rnode
+    volumes:
+      - /data/rns:/root/.reticulum
+
+  meshtastic-bridge:
+    <<: *restart
+    build: ./bridges
+    network_mode: host
+    devices:
+      - /dev/mesh-0:/dev/mesh-0
+    environment:
+      - MESH_PORT=/dev/mesh-0
+      - MQTT_HOST=127.0.0.1
+      - HERMES_API=http://127.0.0.1:8642/v1/chat/completions   # Hermes API Server; VERIFY port/path in Hermes docs
+    command: python meshtastic_bridge.py
+
+  gpsd:
+    <<: *restart
+    build: ./gpsd
+    network_mode: host
+    devices:
+      - /dev/gps:/dev/gps
+    command: gpsd -N -n /dev/gps
+
+  # ---- Channels -----------------------------------------------------------
+  conduit:
+    <<: *restart
+    image: matrixconduit/matrix-conduit:latest
+    network_mode: host
+    environment:
+      - CONDUIT_SERVER_NAME=nomad.lan
+      - CONDUIT_DATABASE_PATH=/var/lib/matrix-conduit/
+      - CONDUIT_PORT=6167
+      - CONDUIT_ALLOW_REGISTRATION=false
+      - CONDUIT_ALLOW_FEDERATION=false
+    volumes:
+      - /data/conduit:/var/lib/matrix-conduit/
+
+  element:
+    <<: *restart
+    image: vectorim/element-web:latest
+    ports: ["8086:80"]
+    volumes:
+      - /data/element/config.json:/app/config.json:ro
+
+  mail:
+    <<: *restart
+    image: axllent/mailpit:latest         # swap for postfix+dovecot when Winlink/Hermes email is wired
+    network_mode: host
+
+  # ---- Infra --------------------------------------------------------------
+  caddy:
+    <<: *restart
+    image: caddy:2
+    network_mode: host
+    volumes:
+      - /data/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - /data/caddy/data:/data
+      - /data/caddy/config:/config
+
+  pihole:
+    <<: *restart
+    image: pihole/pihole:latest
+    network_mode: host
+    environment:
+      - TZ=America/Denver
+      - FTLCONF_webserver_api_password=${PIHOLE_PASSWORD}
+    volumes:
+      - /data/pihole:/etc/pihole
+
+  prometheus:
+    <<: *restart
+    image: prom/prometheus:latest
+    network_mode: host
+    volumes:
+      - /data/prometheus:/prometheus
+      - /data/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    <<: *restart
+    image: grafana/grafana:latest
+    network_mode: host
+    volumes:
+      - /data/grafana:/var/lib/grafana
+
+  node-exporter:
+    <<: *restart
+    image: prom/node-exporter:latest
+    network_mode: host
+    pid: host
+
+  nvidia-exporter:
+    <<: *restart
+    image: utkuozdemir/nvidia_gpu_exporter:latest
+    network_mode: host
+    runtime: nvidia
+
+  kismet:
+    <<: *restart
+    image: kismetwireless/kismet:latest   # VERIFY image name; or install natively
+    network_mode: host
+    privileged: true
+    volumes:
+      - /data/kismet:/root/.kismet
+    profiles: ["pentest"]                 # docker compose --profile pentest up -d kismet
